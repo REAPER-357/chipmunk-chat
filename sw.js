@@ -1,4 +1,4 @@
-const C = 'chipmunk-v1';
+const C = 'chipmunk-v2';
 const ASSETS = ['./', 'index.html', 'manifest.json', 'icon.png', 'small-icon.png'];
 
 self.addEventListener('install', e => {
