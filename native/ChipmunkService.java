@@ -151,7 +151,7 @@ public class ChipmunkService extends Service {
         Uri ring = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
         call.setSound(ring, new AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIC)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build());
         call.enableVibration(true);
         call.setVibrationPattern(new long[]{0, 600, 400, 600, 400});
