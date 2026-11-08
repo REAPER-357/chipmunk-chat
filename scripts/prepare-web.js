@@ -39,15 +39,6 @@ function firstExisting(list) { return list.find(p => fs.existsSync(p)); }
   if (src) { fs.copyFileSync(src, path.join(vendor, 'jsQR.js')); swap('<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>', '<script src="vendor/jsQR.js"></script>', 'jsQR'); }
   else console.warn('! jsqr not found. Keeping CDN link.');
 }
-// Font Awesome (css + webfonts keep their relative layout)
-{
-  const base = nm('@fortawesome/fontawesome-free');
-  if (fs.existsSync(path.join(base, 'css', 'all.min.css')) && fs.existsSync(path.join(base, 'webfonts'))) {
-    fs.cpSync(path.join(base, 'css'), path.join(vendor, 'fa', 'css'), { recursive: true });
-    fs.cpSync(path.join(base, 'webfonts'), path.join(vendor, 'fa', 'webfonts'), { recursive: true });
-    swap('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">', '<link rel="stylesheet" href="vendor/fa/css/all.min.css">', 'font-awesome');
-  } else console.warn('! font-awesome not found. Keeping CDN link.');
-}
 // Tailwind: compile a static stylesheet instead of the in-browser CDN script
 {
   const tmpIn = path.join(root, '.tailwind-input.css');
@@ -62,7 +53,7 @@ function firstExisting(list) { return list.find(p => fs.existsSync(p)); }
 }
 
 fs.writeFileSync(path.join(www, 'index.html'), html);
-for (const f of ['icon.png', 'small-icon.png']) {
+for (const f of ['icon.png', 'small-icon.png', 'smallmc-icon.png', 'manifest.json', 'sw.js']) {
   const p = path.join(root, 'src', f);
   if (fs.existsSync(p)) fs.copyFileSync(p, path.join(www, f));
 }

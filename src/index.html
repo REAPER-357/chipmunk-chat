@@ -1,0 +1,1686 @@
+<!DOCTYPE html>
+<html lang="en" class="dark" data-theme="black">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Chipmunk Chat - Private Encrypted Chat</title>
+
+    <!-- PWA & Theme Integration -->
+    <meta name="theme-color" content="#000000">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+    <style>
+        :root {
+            --accent-color: #10b981;
+            --page-bg: #000000;
+            --page-fg: #f1f5f9;
+            --panel-bg: #18181b;
+            --bar-bg: rgba(0, 0, 0, 0.95);
+            --nav-bg: #09090b;
+            --bar-border: #27272a;
+        }
+        [data-theme="dark"] {
+            --page-bg: #0f172a; --panel-bg: #1e293b; --bar-bg: rgba(15, 23, 42, 0.95); --nav-bg: #020617; --bar-border: #1e293b;
+        }
+        [data-theme="light"] {
+            --page-bg: #f1f5f9; --page-fg: #1e293b; --panel-bg: #ffffff; --bar-bg: rgba(255, 255, 255, 0.95); --nav-bg: #e2e8f0; --bar-border: #cbd5e1;
+        }
+        body { background-color: var(--page-bg); color: var(--page-fg); }
+        button, nav, header, .no-select { -webkit-user-select: none; user-select: none; }
+        .panel-bg { background-color: var(--panel-bg); }
+        .app-header { background-color: var(--bar-bg); border-color: var(--bar-border); padding-top: max(0.75rem, env(safe-area-inset-top)); }
+        .accent-text { color: var(--accent-color) !important; }
+        .accent-bg { background-color: var(--accent-color) !important; }
+        .accent-border { border-color: var(--accent-color) !important; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .safe-bottom { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
+        @keyframes pulseDot { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+        .dot-connecting { animation: pulseDot 1.1s infinite; }
+        #localVideo { transform: scaleX(-1); }
+        .tab-btn.active { background-color: var(--accent-color); color: #fff; }
+        #qrCanvas { image-rendering: pixelated; background: #fff; border-radius: 12px; }
+        .contact-row:active { background-color: rgba(127,127,127,0.12); }
+
+        [data-theme="light"] .bg-black, [data-theme="light"] .bg-black\/40, [data-theme="light"] .bg-black\/50, [data-theme="light"] .bg-black\/30 { background-color: #f1f5f9; }
+        [data-theme="light"] .bg-zinc-800 { background-color: #e2e8f0; }
+        [data-theme="light"] .bg-zinc-900 { background-color: #f8fafc; }
+        [data-theme="light"] .border-zinc-800, [data-theme="light"] .border-zinc-700 { border-color: #cbd5e1; }
+        [data-theme="light"] .text-white:not(.accent-bg):not(.keep-white), [data-theme="light"] .text-zinc-100, [data-theme="light"] .text-zinc-200, [data-theme="light"] .text-zinc-300 { color: #1e293b; }
+        [data-theme="light"] .text-zinc-400, [data-theme="light"] .text-zinc-500 { color: #64748b; }
+        [data-theme="light"] .accent-bg, [data-theme="light"] .accent-bg * { color: #fff !important; }
+        [data-theme="light"] .tab-btn.active { color: #fff; }
+
+        /* Built-in icons: Font Awesome Free SVGs (CC BY 4.0, https://fontawesome.com/license/free) embedded as CSS masks.
+           No network needed. Markup like <i class="fa-solid fa-lock"></i> keeps working. */
+        .fa-solid, .fa-regular { display: inline-block; width: 1em; height: 1em; vertical-align: -0.125em; background-color: currentColor;
+            -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center;
+            -webkit-mask-size: contain; mask-size: contain; -webkit-mask-image: var(--fa); mask-image: var(--fa); }
+        .fa-xmark { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 384 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M55.1 73.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L147.2 256 9.9 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192.5 301.3 329.9 438.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.8 256 375.1 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192.5 210.7 55.1 73.4z%22/%3E%3C/svg%3E"); }
+        .fa-video { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 576 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M96 64c-35.3 0-64 28.7-64 64l0 256c0 35.3 28.7 64 64 64l256 0c35.3 0 64-28.7 64-64l0-256c0-35.3-28.7-64-64-64L96 64zM464 336l73.5 58.8c4.2 3.4 9.4 5.2 14.8 5.2 13.1 0 23.7-10.6 23.7-23.7l0-240.6c0-13.1-10.6-23.7-23.7-23.7-5.4 0-10.6 1.8-14.8 5.2L464 176 464 336z%22/%3E%3C/svg%3E"); }
+        .fa-video-slash { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 576 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M41-24.9c-9.4-9.4-24.6-9.4-33.9 0S-2.3-.3 7 9.1l528 528c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-153-153 0-222.2c0-35.3-28.7-64-64-64L129.8 64 41-24.9zM32 128l0 256c0 35.3 28.7 64 64 64l256 0c7.8 0 15.3-1.4 22.2-4L36 105.8c-2.6 6.9-4 14.4-4 22.2zM464 336l73.5 58.8c4.2 3.4 9.4 5.2 14.8 5.2 13.1 0 23.7-10.6 23.7-23.7l0-240.6c0-13.1-10.6-23.7-23.7-23.7-5.4 0-10.6 1.8-14.8 5.2L464 176 464 336z%22/%3E%3C/svg%3E"); }
+        .fa-phone { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 512 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M160.2 25C152.3 6.1 131.7-3.9 112.1 1.4l-5.5 1.5c-64.6 17.6-119.8 80.2-103.7 156.4 37.1 175 174.8 312.7 349.8 349.8 76.3 16.2 138.8-39.1 156.4-103.7l1.5-5.5c5.4-19.7-4.7-40.3-23.5-48.1l-97.3-40.5c-16.5-6.9-35.6-2.1-47 11.8l-38.6 47.2C233.9 335.4 177.3 277 144.8 205.3L189 169.3c13.9-11.3 18.6-30.4 11.8-47L160.2 25z%22/%3E%3C/svg%3E"); }
+        .fa-phone-slash { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 576 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M535-24.9c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9L41 537.1c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9L141.5 368.6C89.2 310.5 51.6 238.8 34.8 159.4 18.7 83.1 73.9 20.6 138.5 2.9l5.5-1.5c19.7-5.4 40.3 4.7 48.1 23.5l40.5 97.3c6.9 16.5 2.1 35.6-11.8 47l-44.1 36.1c12.9 28.5 29.6 54.8 49.5 78.5L535-24.9zm-150.4 534c-63-13.4-121.3-39.8-171.7-76.3L297.8 348c12.2 8.2 25 15.6 38.3 22.2L374.7 323c11.3-13.9 30.4-18.6 47-11.8L519 351.8c18.8 7.8 28.9 28.4 23.5 48.1l-1.5 5.5c-17.6 64.6-80.2 119.8-156.4 103.7z%22/%3E%3C/svg%3E"); }
+        .fa-user-plus { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 640 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M285.7 304c98.5 0 178.3 79.8 178.3 178.3 0 16.4-13.3 29.7-29.7 29.7L77.7 512C61.3 512 48 498.7 48 482.3 48 383.8 127.8 304 226.3 304l59.4 0zM528 80c13.3 0 24 10.7 24 24l0 48 48 0c13.3 0 24 10.7 24 24s-10.7 24-24 24l-48 0 0 48c0 13.3-10.7 24-24 24s-24-10.7-24-24l0-48-48 0c-13.3 0-24-10.7-24-24s10.7-24 24-24l48 0 0-48c0-13.3 10.7-24 24-24zM256 248a120 120 0 1 1 0-240 120 120 0 1 1 0 240z%22/%3E%3C/svg%3E"); }
+        .fa-microphone { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 384 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M192 0C139 0 96 43 96 96l0 128c0 53 43 96 96 96s96-43 96-96l0-128c0-53-43-96-96-96zM48 184c0-13.3-10.7-24-24-24S0 170.7 0 184l0 40c0 97.9 73.3 178.7 168 190.5l0 49.5-48 0c-13.3 0-24 10.7-24 24s10.7 24 24 24l144 0c13.3 0 24-10.7 24-24s-10.7-24-24-24l-48 0 0-49.5c94.7-11.8 168-92.6 168-190.5l0-40c0-13.3-10.7-24-24-24s-24 10.7-24 24l0 40c0 79.5-64.5 144-144 144S48 303.5 48 224l0-40z%22/%3E%3C/svg%3E"); }
+        .fa-microphone-slash { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 576 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M41-24.9c-9.4-9.4-24.6-9.4-33.9 0S-2.3-.3 7 9.1l528 528c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9L424.7 358.8C458.9 324.2 480 276.6 480 224l0-40c0-13.3-10.7-24-24-24s-24 10.7-24 24l0 40c0 39.3-15.7 74.9-41.3 100.9L356.8 291C373.6 273.7 384 250 384 224l0-128c0-53-43-96-96-96s-96 43-96 96l0 30.2-151-151zm298.3 434l-41.4-41.4c-3.3 .2-6.5 .3-9.8 .3-79.5 0-144-64.5-144-144l0-10.2-43.6-43.6c-2.8 3.9-4.4 8.7-4.4 13.8l0 40c0 97.9 73.3 178.7 168 190.5l0 49.5-48 0c-13.3 0-24 10.7-24 24s10.7 24 24 24l144 0c13.3 0 24-10.7 24-24s-10.7-24-24-24l-48 0 0-49.5c9.3-1.2 18.4-3 27.3-5.4z%22/%3E%3C/svg%3E"); }
+        .fa-upload { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 448 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M256 109.3L256 320c0 17.7-14.3 32-32 32s-32-14.3-32-32l0-210.7-41.4 41.4c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3l96-96c12.5-12.5 32.8-12.5 45.3 0l96 96c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L256 109.3zM224 400c44.2 0 80-35.8 80-80l80 0c35.3 0 64 28.7 64 64l0 32c0 35.3-28.7 64-64 64L64 480c-35.3 0-64-28.7-64-64l0-32c0-35.3 28.7-64 64-64l80 0c0 44.2 35.8 80 80 80zm144 24a24 24 0 1 0 0-48 24 24 0 1 0 0 48z%22/%3E%3C/svg%3E"); }
+        .fa-trash { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 448 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M136.7 5.9L128 32 32 32C14.3 32 0 46.3 0 64S14.3 96 32 96l384 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-96 0-8.7-26.1C306.9-7.2 294.7-16 280.9-16L167.1-16c-13.8 0-26 8.8-30.4 21.9zM416 144L32 144 53.1 467.1C54.7 492.4 75.7 512 101 512L347 512c25.3 0 46.3-19.6 47.9-44.9L416 144z%22/%3E%3C/svg%3E"); }
+        .fa-shield-halved { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 512 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M256 0c4.6 0 9.2 1 13.4 2.9L457.8 82.8c22 9.3 38.4 31 38.3 57.2-.5 99.2-41.3 280.7-213.6 363.2-16.7 8-36.1 8-52.8 0-172.4-82.5-213.1-264-213.6-363.2-.1-26.2 16.3-47.9 38.3-57.2L242.7 2.9C246.9 1 251.4 0 256 0zm0 66.8l0 378.1c138-66.8 175.1-214.8 176-303.4l-176-74.6 0 0z%22/%3E%3C/svg%3E"); }
+        .fa-qrcode { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 448 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M64 160l64 0 0-64-64 0 0 64zM0 80C0 53.5 21.5 32 48 32l96 0c26.5 0 48 21.5 48 48l0 96c0 26.5-21.5 48-48 48l-96 0c-26.5 0-48-21.5-48-48L0 80zM64 416l64 0 0-64-64 0 0 64zM0 336c0-26.5 21.5-48 48-48l96 0c26.5 0 48 21.5 48 48l0 96c0 26.5-21.5 48-48 48l-96 0c-26.5 0-48-21.5-48-48l0-96zM320 96l0 64 64 0 0-64-64 0zM304 32l96 0c26.5 0 48 21.5 48 48l0 96c0 26.5-21.5 48-48 48l-96 0c-26.5 0-48-21.5-48-48l0-96c0-26.5 21.5-48 48-48zM288 352a32 32 0 1 1 0-64 32 32 0 1 1 0 64zm0 64c17.7 0 32 14.3 32 32s-14.3 32-32 32-32-14.3-32-32 14.3-32 32-32zm96 32c0-17.7 14.3-32 32-32s32 14.3 32 32-14.3 32-32 32-32-14.3-32-32zm32-96a32 32 0 1 1 0-64 32 32 0 1 1 0 64zm-32 32a32 32 0 1 1 -64 0 32 32 0 1 1 64 0z%22/%3E%3C/svg%3E"); }
+        .fa-paper-plane { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 576 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M536.4-26.3c9.8-3.5 20.6-1 28 6.3s9.8 18.2 6.3 28l-178 496.9c-5 13.9-18.1 23.1-32.8 23.1-14.2 0-27-8.6-32.3-21.7l-64.2-158c-4.5-11-2.5-23.6 5.2-32.6l94.5-112.4c5.1-6.1 4.7-15-.9-20.6s-14.6-6-20.6-.9L229.2 276.1c-9.1 7.6-21.6 9.6-32.6 5.2L38.1 216.8c-13.1-5.3-21.7-18.1-21.7-32.3 0-14.7 9.2-27.8 23.1-32.8l496.9-178z%22/%3E%3C/svg%3E"); }
+        .fa-lock { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 384 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M128 96l0 64 128 0 0-64c0-35.3-28.7-64-64-64s-64 28.7-64 64zM64 160l0-64C64 25.3 121.3-32 192-32S320 25.3 320 96l0 64c35.3 0 64 28.7 64 64l0 224c0 35.3-28.7 64-64 64L64 512c-35.3 0-64-28.7-64-64L0 224c0-35.3 28.7-64 64-64z%22/%3E%3C/svg%3E"); }
+        .fa-image { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 448 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M64 32C28.7 32 0 60.7 0 96L0 416c0 35.3 28.7 64 64 64l320 0c35.3 0 64-28.7 64-64l0-320c0-35.3-28.7-64-64-64L64 32zm64 80a48 48 0 1 1 0 96 48 48 0 1 1 0-96zM272 224c8.4 0 16.1 4.4 20.5 11.5l88 144c4.5 7.4 4.7 16.7 .5 24.3S368.7 416 360 416L88 416c-8.9 0-17.2-5-21.3-12.9s-3.5-17.5 1.6-24.8l56-80c4.5-6.4 11.8-10.2 19.7-10.2s15.2 3.8 19.7 10.2l26.4 37.8 61.4-100.5c4.4-7.1 12.1-11.5 20.5-11.5z%22/%3E%3C/svg%3E"); }
+        .fa-gear { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 512 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M195.1 9.5C198.1-5.3 211.2-16 226.4-16l59.8 0c15.2 0 28.3 10.7 31.3 25.5L332 79.5c14.1 6 27.3 13.7 39.3 22.8l67.8-22.5c14.4-4.8 30.2 1.2 37.8 14.4l29.9 51.8c7.6 13.2 4.9 29.8-6.5 39.9L447 233.3c.9 7.4 1.3 15 1.3 22.7s-.5 15.3-1.3 22.7l53.4 47.5c11.4 10.1 14 26.8 6.5 39.9l-29.9 51.8c-7.6 13.1-23.4 19.2-37.8 14.4l-67.8-22.5c-12.1 9.1-25.3 16.7-39.3 22.8l-14.4 69.9c-3.1 14.9-16.2 25.5-31.3 25.5l-59.8 0c-15.2 0-28.3-10.7-31.3-25.5l-14.4-69.9c-14.1-6-27.2-13.7-39.3-22.8L73.5 432.3c-14.4 4.8-30.2-1.2-37.8-14.4L5.8 366.1c-7.6-13.2-4.9-29.8 6.5-39.9l53.4-47.5c-.9-7.4-1.3-15-1.3-22.7s.5-15.3 1.3-22.7L12.3 185.8c-11.4-10.1-14-26.8-6.5-39.9L35.7 94.1c7.6-13.2 23.4-19.2 37.8-14.4l67.8 22.5c12.1-9.1 25.3-16.7 39.3-22.8L195.1 9.5zM256.3 336a80 80 0 1 0 -.6-160 80 80 0 1 0 .6 160z%22/%3E%3C/svg%3E"); }
+        .fa-ellipsis-vertical { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M64 144a56 56 0 1 1 0-112 56 56 0 1 1 0 112zm0 224c30.9 0 56 25.1 56 56s-25.1 56-56 56-56-25.1-56-56 25.1-56 56-56zm56-112c0 30.9-25.1 56-56 56s-56-25.1-56-56 25.1-56 56-56 56 25.1 56 56z%22/%3E%3C/svg%3E"); }
+        .fa-download { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 448 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M256 32c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 210.7-41.4-41.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l96 96c12.5 12.5 32.8 12.5 45.3 0l96-96c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 242.7 256 32zM64 320c-35.3 0-64 28.7-64 64l0 32c0 35.3 28.7 64 64 64l320 0c35.3 0 64-28.7 64-64l0-32c0-35.3-28.7-64-64-64l-46.9 0-56.6 56.6c-31.2 31.2-81.9 31.2-113.1 0L110.9 320 64 320zm304 56a24 24 0 1 1 0 48 24 24 0 1 1 0-48z%22/%3E%3C/svg%3E"); }
+        .fa-arrow-left { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 512 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 288 480 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-370.7 0 105.4-105.4c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z%22/%3E%3C/svg%3E"); }
+        .fa-key { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 512 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M336 352c97.2 0 176-78.8 176-176S433.2 0 336 0 160 78.8 160 176c0 18.7 2.9 36.8 8.3 53.7L7 391c-4.5 4.5-7 10.6-7 17l0 80c0 13.3 10.7 24 24 24l80 0c13.3 0 24-10.7 24-24l0-40 40 0c13.3 0 24-10.7 24-24l0-40 40 0c6.4 0 12.5-2.5 17-7l33.3-33.3c16.9 5.4 35 8.3 53.7 8.3zM376 96a40 40 0 1 1 0 80 40 40 0 1 1 0-80z%22/%3E%3C/svg%3E"); }
+        .fa-server { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 448 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M64 32C28.7 32 0 60.7 0 96l0 64c0 35.3 28.7 64 64 64l320 0c35.3 0 64-28.7 64-64l0-64c0-35.3-28.7-64-64-64L64 32zm216 72a24 24 0 1 1 0 48 24 24 0 1 1 0-48zm56 24a24 24 0 1 1 48 0 24 24 0 1 1 -48 0zM64 288c-35.3 0-64 28.7-64 64l0 64c0 35.3 28.7 64 64 64l320 0c35.3 0 64-28.7 64-64l0-64c0-35.3-28.7-64-64-64L64 288zm216 72a24 24 0 1 1 0 48 24 24 0 1 1 0-48zm56 24a24 24 0 1 1 48 0 24 24 0 1 1 -48 0z%22/%3E%3C/svg%3E"); }
+        .fa-copy { --fa: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 448 512%22%3E%3Cpath fill=%22currentColor%22 d=%22M384 336l-192 0c-8.8 0-16-7.2-16-16l0-256c0-8.8 7.2-16 16-16l133.5 0c4.2 0 8.3 1.7 11.3 4.7l58.5 58.5c3 3 4.7 7.1 4.7 11.3L400 320c0 8.8-7.2 16-16 16zM192 384l192 0c35.3 0 64-28.7 64-64l0-197.5c0-17-6.7-33.3-18.7-45.3L370.7 18.7C358.7 6.7 342.5 0 325.5 0L192 0c-35.3 0-64 28.7-64 64l0 256c0 35.3 28.7 64 64 64zM64 128c-35.3 0-64 28.7-64 64L0 448c0 35.3 28.7 64 64 64l192 0c35.3 0 64-28.7 64-64l0-16-48 0 0 16c0 8.8-7.2 16-16 16L64 464c-8.8 0-16-7.2-16-16l0-256c0-8.8 7.2-16 16-16l16 0 0-48-16 0z%22/%3E%3C/svg%3E"); }
+    </style>
+</head>
+<body class="h-[100dvh] flex flex-col font-sans overflow-hidden transition-colors duration-200">
+
+    <!-- TOP HEADER -->
+    <header class="app-header z-30 backdrop-blur-md border-b px-4 pb-3 flex items-center justify-between flex-shrink-0">
+        <div class="flex items-center gap-2.5 min-w-0">
+            <button id="btnBack" aria-label="Back" class="hdr hidden flex w-9 h-9 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 items-center justify-center flex-shrink-0"><i class="fa-solid fa-arrow-left"></i></button>
+            <img id="logoImg" data-fallback="🐿️" src="small-icon.png" alt="Logo" class="w-9 h-9 rounded-full object-cover border border-zinc-700 shadow-sm flex-shrink-0" />
+            <div class="min-w-0">
+                <h1 id="appTitleHeader" class="text-base font-bold tracking-tight leading-none text-emerald-400 truncate">CHIPMUNK CHAT</h1>
+                <p class="text-[10px] text-zinc-400 font-medium flex items-center gap-1.5 mt-0.5 truncate">
+                    <span id="statusDot" class="inline-block w-1.5 h-1.5 rounded-full bg-zinc-500 flex-shrink-0"></span>
+                    <span id="statusText" class="truncate">Private &amp; Encrypted</span>
+                </p>
+            </div>
+        </div>
+        <div class="flex items-center gap-1.5 flex-shrink-0">
+            <button id="btnVoice" aria-label="Voice call" class="hdr hidden flex w-9 h-9 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 items-center justify-center disabled:opacity-40"><i class="fa-solid fa-phone"></i></button>
+            <button id="btnVideo" aria-label="Video call" class="hdr hidden flex w-9 h-9 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 items-center justify-center disabled:opacity-40"><i class="fa-solid fa-video"></i></button>
+            <button id="btnMenu" aria-label="Contact options" class="hdr hidden flex w-9 h-9 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 items-center justify-center"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+            <button id="btnAdd" aria-label="Add contact" class="hdr hidden flex w-9 h-9 rounded-xl accent-bg text-white items-center justify-center"><i class="fa-solid fa-user-plus"></i></button>
+            <button id="openSettingsBtn" aria-label="Open settings" class="hdr hidden flex p-2.5 rounded-xl text-zinc-300 hover:bg-zinc-800/50 transition items-center justify-center"><i class="fa-solid fa-gear text-lg"></i></button>
+        </div>
+    </header>
+
+    <!-- TOAST -->
+    <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 z-[90] hidden px-4 py-2 rounded-xl bg-zinc-800 text-zinc-100 text-xs font-medium shadow-xl border border-zinc-700 max-w-[90vw] items-center gap-3"></div>
+
+    <!-- LOCK / SETUP VIEW -->
+    <main id="lockView" class="hidden flex-1 overflow-y-auto p-4 flex items-center justify-center">
+        <div class="panel-bg w-full max-w-md rounded-3xl p-6 border border-zinc-800 shadow-2xl space-y-4 text-center">
+            <img id="entryLogo" data-fallback="🐿️" src="icon.png" alt="Logo" class="w-24 h-24 mx-auto rounded-2xl object-cover border-2 border-zinc-700 shadow-lg" />
+            <div>
+                <h2 id="lockTitle" class="text-base font-bold text-white">Unlock Chipmunk Chat</h2>
+                <p id="lockSub" class="text-[11px] text-zinc-400 mt-1"></p>
+            </div>
+            <input type="password" id="pinInput" autocomplete="off" placeholder="PIN" class="w-full px-3 py-2.5 bg-black border border-zinc-800 rounded-xl text-sm text-white text-center focus:outline-none focus:border-emerald-500">
+            <input type="password" id="pinInput2" autocomplete="off" placeholder="Repeat PIN" class="hidden w-full px-3 py-2.5 bg-black border border-zinc-800 rounded-xl text-sm text-white text-center focus:outline-none focus:border-emerald-500">
+            <button id="btnLockGo" class="w-full py-2.5 text-sm font-semibold accent-bg text-white rounded-xl shadow">Unlock</button>
+            <button id="btnSkipPin" class="hidden w-full py-2 text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl">Skip (not recommended)</button>
+            <button id="btnForgot" class="hidden text-[11px] text-zinc-500 underline">Forgot PIN? Erase everything</button>
+            <p class="text-[10px] font-mono tracking-widest text-zinc-600 uppercase pt-1">By REAPER-357</p>
+        </div>
+    </main>
+
+    <!-- CONTACT LIST VIEW -->
+    <main id="listView" class="hidden flex-1 flex flex-col min-h-0">
+        <div class="flex-1 overflow-y-auto no-scrollbar">
+            <div id="contactList" class="divide-y divide-zinc-800/60"></div>
+            <div id="emptyList" class="hidden text-center px-8 py-14 space-y-3">
+                <div class="text-5xl">🐿️</div>
+                <p class="text-sm font-semibold text-white">No contacts yet</p>
+                <p class="text-[11px] text-zinc-400">Add someone by scanning their QR code, or create an invite for them to scan.</p>
+                <button id="btnEmptyAdd" class="px-5 py-2.5 text-xs font-semibold accent-bg text-white rounded-xl"><i class="fa-solid fa-user-plus mr-1"></i> Add contact</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- CHAT VIEW -->
+    <section id="chatView" class="hidden flex-1 flex flex-col min-h-0">
+        <div class="px-4 py-1.5 text-[10px] text-zinc-500 border-b border-zinc-800/60 flex items-center justify-between flex-shrink-0">
+            <span><i class="fa-solid fa-shield-halved accent-text mr-1"></i> End-to-end encrypted</span>
+            <span>Both of you must be online</span>
+        </div>
+        <div id="msgs" class="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar"></div>
+        <div class="panel-bg border-t border-zinc-800 px-3 pt-2 safe-bottom flex items-end gap-2 flex-shrink-0">
+            <label id="attachLbl" class="w-10 h-10 flex-shrink-0 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 flex items-center justify-center cursor-pointer" aria-label="Send photo">
+                <i class="fa-solid fa-image"></i>
+                <input type="file" id="photoInput" accept="image/*" multiple class="hidden">
+            </label>
+            <textarea id="msgInput" rows="1" placeholder="Waiting..." disabled class="flex-1 px-3 py-2.5 bg-black border border-zinc-800 rounded-xl text-sm text-white resize-none max-h-32 focus:outline-none focus:border-emerald-500 disabled:opacity-50"></textarea>
+            <button id="btnSend" aria-label="Send" disabled class="w-10 h-10 flex-shrink-0 rounded-xl accent-bg text-white flex items-center justify-center disabled:opacity-40"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+    </section>
+
+    <!-- ADD CONTACT MODAL -->
+    <div id="addModal" class="modal fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="panel-bg w-full max-w-md rounded-3xl p-5 border border-zinc-800 shadow-2xl space-y-3 relative max-h-[92vh] overflow-y-auto">
+            <button class="closeModalBtn absolute top-4 right-4 text-zinc-400 hover:text-white text-lg" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="text-base font-bold text-white text-center">Add a contact</h3>
+            <div class="grid grid-cols-3 gap-1.5 bg-black/50 p-1 rounded-xl border border-zinc-800">
+                <button data-tab="invite" class="tab-btn py-1.5 rounded-lg text-xs font-semibold text-zinc-300">Invite</button>
+                <button data-tab="scan" class="tab-btn py-1.5 rounded-lg text-xs font-semibold text-zinc-300">Scan QR</button>
+                <button data-tab="manual" class="tab-btn py-1.5 rounded-lg text-xs font-semibold text-zinc-300">Type in</button>
+            </div>
+
+            <div id="pane-invite" class="space-y-3">
+                <p class="text-[11px] text-zinc-400">Create a one-time invite for one person. They scan the QR, or you send them the ID and the secret through two different channels (for example ID by email, secret by text).</p>
+                <button id="btnNewInvite" class="w-full py-2.5 text-xs font-semibold accent-bg text-white rounded-xl"><i class="fa-solid fa-qrcode mr-1"></i> Create new invite</button>
+                <div id="inviteBox" class="hidden space-y-2 text-center">
+                    <canvas id="qrCanvas" class="mx-auto" style="width:260px;max-width:100%"></canvas>
+                    <p class="text-[10px] text-zinc-500">Waiting for them to scan and come online. Keep this app open.</p>
+                    <div class="text-left space-y-1">
+                        <label class="text-[10px] text-zinc-400">My ID (send by channel 1)</label>
+                        <div class="flex gap-1.5"><input id="invId" readonly class="flex-1 min-w-0 px-2 py-2 bg-black border border-zinc-800 rounded-xl text-[10px] text-white font-mono"><button data-copy="invId" class="px-3 rounded-xl bg-zinc-800 text-zinc-200 text-xs"><i class="fa-regular fa-copy"></i></button></div>
+                        <label class="text-[10px] text-zinc-400">Secret (send by channel 2)</label>
+                        <div class="flex gap-1.5"><input id="invSecret" readonly class="flex-1 min-w-0 px-2 py-2 bg-black border border-zinc-800 rounded-xl text-[10px] text-white font-mono"><button data-copy="invSecret" class="px-3 rounded-xl bg-zinc-800 text-zinc-200 text-xs"><i class="fa-regular fa-copy"></i></button></div>
+                    </div>
+                </div>
+                <div id="inviteListWrap" class="hidden space-y-1.5">
+                    <p class="text-[10px] text-zinc-500 uppercase tracking-wider text-left">Pending invites</p>
+                    <div id="inviteList" class="space-y-1.5"></div>
+                </div>
+            </div>
+
+            <div id="pane-scan" class="hidden space-y-2">
+                <div class="relative rounded-2xl overflow-hidden bg-black border border-zinc-800 aspect-square">
+                    <video id="scanVideo" playsinline muted class="w-full h-full object-cover"></video>
+                </div>
+                <p id="scanMsg" class="text-[11px] text-zinc-400 text-center">Point the camera at your friend's invite QR code.</p>
+            </div>
+
+            <div id="pane-manual" class="hidden space-y-2">
+                <input id="mName" maxlength="30" placeholder="Name (e.g. Tom)" class="w-full px-3 py-2.5 bg-black border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500">
+                <input id="mId" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Their ID" class="w-full px-3 py-2.5 bg-black border border-zinc-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-emerald-500">
+                <input id="mSecret" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Secret they gave you" class="w-full px-3 py-2.5 bg-black border border-zinc-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-emerald-500">
+                <button id="btnAddManual" class="w-full py-2.5 text-xs font-semibold accent-bg text-white rounded-xl"><i class="fa-solid fa-user-plus mr-1"></i> Add contact</button>
+                <p class="text-[10px] text-zinc-500">They will appear as soon as both of you are online.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTACT MENU MODAL -->
+    <div id="menuModal" class="modal fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="panel-bg w-full max-w-sm rounded-3xl p-5 border border-zinc-800 shadow-2xl space-y-3 relative">
+            <button class="closeModalBtn absolute top-4 right-4 text-zinc-400 hover:text-white text-lg" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="text-base font-bold text-white text-center">Contact</h3>
+            <div class="flex gap-1.5">
+                <input id="renameInput" maxlength="30" class="flex-1 min-w-0 px-3 py-2.5 bg-black border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500">
+                <button id="btnRename" class="px-4 rounded-xl accent-bg text-white text-xs font-semibold">Rename</button>
+            </div>
+            <button id="btnClearChat" class="w-full py-2.5 text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl">Clear this chat</button>
+            <button id="btnDeleteContact" class="w-full py-2.5 text-xs font-semibold bg-red-950 hover:bg-red-900 text-red-400 rounded-xl keep-white"><i class="fa-solid fa-trash mr-1"></i> Delete contact</button>
+        </div>
+    </div>
+
+    <!-- PIN MODAL -->
+    <div id="pinModal" class="modal fixed inset-0 z-[55] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="panel-bg w-full max-w-sm rounded-3xl p-5 border border-zinc-800 shadow-2xl space-y-3 relative">
+            <button class="closeModalBtn absolute top-4 right-4 text-zinc-400 hover:text-white text-lg" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="text-base font-bold text-white text-center">Set PIN</h3>
+            <input type="password" id="newPin" autocomplete="off" placeholder="New PIN (4+ characters)" class="w-full px-3 py-2.5 bg-black border border-zinc-800 rounded-xl text-sm text-white text-center focus:outline-none focus:border-emerald-500">
+            <input type="password" id="newPin2" autocomplete="off" placeholder="Repeat PIN" class="w-full px-3 py-2.5 bg-black border border-zinc-800 rounded-xl text-sm text-white text-center focus:outline-none focus:border-emerald-500">
+            <button id="btnPinSave" class="w-full py-2.5 text-xs font-semibold accent-bg text-white rounded-xl">Save PIN</button>
+        </div>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div id="settingsModal" class="modal fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="panel-bg w-full max-w-md rounded-3xl p-6 border border-zinc-800 shadow-2xl space-y-4 text-center relative max-h-[90vh] overflow-y-auto">
+            <button class="closeModalBtn absolute top-4 right-4 text-zinc-400 hover:text-white text-lg" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="text-base font-bold text-white">Chipmunk Settings</h3>
+
+            <div class="bg-black/50 p-3 rounded-2xl border border-zinc-800 space-y-2 text-left">
+                <span class="text-xs font-semibold text-zinc-300">My name (shown to new contacts)</span>
+                <input id="myNameInput" maxlength="30" class="w-full px-3 py-2 bg-black border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500">
+                <span class="text-xs font-semibold text-zinc-300 block pt-1">My ID</span>
+                <div class="flex gap-1.5"><input id="myIdField" readonly class="flex-1 min-w-0 px-2 py-2 bg-black border border-zinc-800 rounded-xl text-[10px] text-white font-mono"><button data-copy="myIdField" class="px-3 rounded-xl bg-zinc-800 text-zinc-200 text-xs"><i class="fa-regular fa-copy"></i></button></div>
+                <p class="text-[10px] text-zinc-500">Your ID is only an address. Nobody can read your chats with it. Each contact needs their own secret.</p>
+            </div>
+
+            <div class="bg-black/50 p-3 rounded-2xl border border-zinc-800 space-y-2 text-left">
+                <span class="text-xs font-semibold text-zinc-300">Security</span>
+                <p id="pinState" class="text-[11px] text-zinc-400"></p>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="btnSetPin" class="py-2 text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl">Set PIN</button>
+                    <button id="btnLockNow" class="py-2 text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl"><i class="fa-solid fa-lock mr-1"></i> Lock now</button>
+                </div>
+            </div>
+
+            <div class="bg-black/50 p-3 rounded-2xl border border-zinc-800 space-y-2 text-left">
+                <span class="text-xs font-semibold text-zinc-300">Backup</span>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="btnExport" class="py-2 text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl"><i class="fa-solid fa-download mr-1"></i> Export</button>
+                    <label class="py-2 text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-center cursor-pointer"><i class="fa-solid fa-upload mr-1"></i> Import<input type="file" id="importInput" accept=".json,application/json" class="hidden"></label>
+                </div>
+                <p class="text-[10px] text-zinc-500">Contacts and secrets live only on this device. If you lose the phone without a backup, they are gone.</p>
+            </div>
+
+            <div id="secureIoMount" class="space-y-4"></div>
+
+            <div id="bgCard" class="hidden bg-black/50 p-3 rounded-2xl border border-zinc-800 space-y-2 text-left">
+                <span class="text-xs font-semibold text-zinc-300">Background (Android app)</span>
+                <label class="flex items-center justify-between gap-3 text-[11px] text-zinc-300"><span>Keep running in the background</span><input type="checkbox" id="bgToggle" class="w-4 h-4"></label>
+                <label class="flex items-center justify-between gap-3 text-[11px] text-zinc-300"><span>Keep CPU awake (most reliable, uses more battery)</span><input type="checkbox" id="wakeToggle" class="w-4 h-4"></label>
+                <p id="batteryState" class="text-[11px] text-zinc-400"></p>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="btnBattery" class="py-2 text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl">Allow unrestricted battery</button>
+                    <button id="btnNotifPerm" class="py-2 text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl">Allow notifications</button>
+                </div>
+                <p class="text-[10px] text-zinc-500">A small notification stays in the status bar while this is on. On Xiaomi, Huawei, Samsung and OnePlus phones, also set Chipmunk Chat to "no restrictions" and allow auto-start in the phone's own battery settings.</p>
+            </div>
+
+            <div class="bg-black/50 p-3 rounded-2xl border border-zinc-800 space-y-2 text-left">
+                <span class="text-xs font-semibold text-zinc-300">Theme</span>
+                <div class="grid grid-cols-3 gap-2">
+                    <button data-theme-pick="black" class="py-1.5 rounded-xl text-xs bg-zinc-900 border border-zinc-700 text-white">Pure Black</button>
+                    <button data-theme-pick="dark" class="py-1.5 rounded-xl text-xs bg-zinc-800 border border-zinc-700 text-zinc-300">Dark</button>
+                    <button data-theme-pick="light" class="py-1.5 rounded-xl text-xs bg-slate-200 border border-slate-300 text-slate-800">Light</button>
+                </div>
+                <span class="text-xs font-semibold text-zinc-300 block pt-1">Accent Color</span>
+                <div class="flex items-center justify-around pt-1">
+                    <button data-accent="#10b981" aria-label="Green" class="w-7 h-7 rounded-full bg-emerald-500 shadow"></button>
+                    <button data-accent="#ef4444" aria-label="Red" class="w-7 h-7 rounded-full bg-red-500 shadow"></button>
+                    <button data-accent="#3b82f6" aria-label="Blue" class="w-7 h-7 rounded-full bg-blue-500 shadow"></button>
+                    <button data-accent="#a855f7" aria-label="Purple" class="w-7 h-7 rounded-full bg-purple-500 shadow"></button>
+                    <button data-accent="#f59e0b" aria-label="Amber" class="w-7 h-7 rounded-full bg-amber-500 shadow"></button>
+                </div>
+            </div>
+
+            <div class="bg-black/50 p-3 rounded-2xl border border-zinc-800 space-y-1.5 text-left text-[11px] text-zinc-400">
+                <span class="text-xs font-semibold text-zinc-300">How it works</span>
+                <p>Your ID is a long random address. Each contact also has a secret that only the two of you know.</p>
+                <p>When you connect, both phones prove they know the secret and agree on a fresh one-time key, so old chats stay safe even if a secret leaks later.</p>
+                <p>Messages and photos are encrypted with AES-256. Calls use WebRTC's built-in encryption.</p>
+                <p>A free public broker only helps phones find each other. It sees IP addresses and scrambled addresses, never messages.</p>
+                <p>A TURN relay is optional. If you add one, it only carries already-encrypted call data when two phones cannot connect directly.</p>
+                <p>Chat history is kept in memory only and disappears when you close or lock the app.</p>
+            </div>
+
+            <button id="btnErase" class="w-full py-2 text-xs font-semibold bg-red-950 hover:bg-red-900 text-red-400 rounded-xl keep-white">Erase everything on this device</button>
+        </div>
+    </div>
+
+    <!-- INCOMING CALL -->
+    <div id="incomingModal" class="fixed inset-0 z-[65] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="panel-bg w-full max-w-xs rounded-3xl p-6 border border-zinc-800 shadow-2xl space-y-4 text-center">
+            <div class="w-14 h-14 accent-bg rounded-full flex items-center justify-center mx-auto text-xl text-white"><i id="incomingIcon" class="fa-solid fa-phone"></i></div>
+            <div>
+                <h3 id="incomingName" class="text-base font-bold text-white">Contact</h3>
+                <p id="incomingTitle" class="text-[11px] text-zinc-400">Incoming call</p>
+            </div>
+            <div class="flex justify-center gap-3">
+                <button id="btnDecline" class="px-5 py-2.5 text-xs font-semibold bg-red-600 hover:bg-red-500 text-white rounded-xl keep-white"><i class="fa-solid fa-phone-slash mr-1"></i> Decline</button>
+                <button id="btnAccept" class="px-5 py-2.5 text-xs font-semibold accent-bg text-white rounded-xl"><i class="fa-solid fa-phone mr-1"></i> Answer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CALL OVERLAY -->
+    <div id="callOverlay" class="fixed inset-0 z-[60] bg-black flex flex-col hidden">
+        <div class="relative flex-1 min-h-0">
+            <video id="remoteVideo" autoplay playsinline class="absolute inset-0 w-full h-full object-contain bg-black"></video>
+            <div id="voiceAvatar" class="absolute inset-0 bg-black flex flex-col items-center justify-center gap-3">
+                <div class="w-28 h-28 rounded-full bg-zinc-800 flex items-center justify-center text-5xl">🐿️</div>
+                <p id="callName" class="text-zinc-200 text-base font-semibold keep-white">Call</p>
+            </div>
+            <div class="absolute top-0 left-0 right-0 p-4 flex justify-center" style="padding-top:max(1rem,env(safe-area-inset-top))">
+                <span id="callTimerText" class="px-3 py-1 rounded-full bg-black/60 text-xs text-white keep-white font-mono">Connecting...</span>
+            </div>
+            <video id="localVideo" autoplay playsinline muted class="hidden absolute bottom-4 right-4 w-28 h-40 object-cover rounded-xl border border-zinc-700 bg-zinc-900"></video>
+        </div>
+        <div class="flex items-center justify-center gap-4 py-5 bg-black safe-bottom">
+            <button id="btnMute" aria-label="Mute" class="w-14 h-14 rounded-full bg-zinc-800 text-white keep-white text-lg"><i class="fa-solid fa-microphone"></i></button>
+            <button id="btnCam" aria-label="Camera" class="w-14 h-14 rounded-full bg-zinc-800 text-white keep-white text-lg"><i class="fa-solid fa-video"></i></button>
+            <button id="btnHangup" aria-label="Hang up" class="w-14 h-14 rounded-full bg-red-600 hover:bg-red-500 text-white keep-white text-lg"><i class="fa-solid fa-phone-slash"></i></button>
+        </div>
+    </div>
+
+    <!-- IMAGE VIEWER -->
+    <div id="viewerModal" class="modal fixed inset-0 z-[70] bg-black/95 flex items-center justify-center p-3 hidden">
+        <button class="closeModalBtn absolute top-4 right-4 text-white keep-white text-2xl z-10" style="top:max(1rem,env(safe-area-inset-top))" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        <img id="viewerImg" alt="Photo" class="max-w-full max-h-full object-contain rounded-lg">
+    </div>
+
+    <script>
+/*!
+ * Chipmunk Chat - Secure Import / Export (v2, integrated build)
+ * Two separate encrypted pairs in Settings:
+ *   1) Contacts (IDs + secrets)   kind: "room-ids"
+ *   2) TURN relay config          kind: "turn-config"
+ * AES-256-GCM, key from passphrase via PBKDF2-SHA256 (600,000 iterations), fresh salt + IV per file.
+ * The file kind is bound into the ciphertext (authenticated data) so files cannot be swapped or relabelled.
+ * No network calls, no libraries: Web Crypto only.
+ */
+(function (global) {
+  'use strict';
+
+  var APP = 'chipmunk-chat';
+  var FORMAT_VERSION = 1;
+  var PBKDF2_ITER = 600000;
+  var MIN_PASS = 12;
+  var TURN_KEY = 'chipmunk.turnConfig.v1';
+
+  var hooks = {
+    getRooms: function () { return []; },      // () => [{title, code, secret}]
+    addRooms: null,                            // async (list) => number added (preferred over setRooms)
+    setRooms: function () {},                  // fallback: receives merged list
+    loadTurn: null,                            // () => saved TURN object or null (host storage)
+    persistTurn: null,                         // (obj|null) => void (host storage)
+    saveFile: null,                            // async (filename, text) => optional message
+    onTurnChange: function () {},
+    icon: null                                 // (name) => html, optional host icon renderer
+  };
+
+  // ---------- base64 ----------
+  function b64(buf) {
+    var bytes = new Uint8Array(buf), s = '';
+    for (var i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(s);
+  }
+  function unb64(str) {
+    var s = atob(str), out = new Uint8Array(s.length);
+    for (var i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+    return out;
+  }
+
+  // ---------- crypto ----------
+  function aad(kind) { return new TextEncoder().encode(APP + '|' + kind + '|v' + FORMAT_VERSION); }
+
+  async function deriveKey(pass, salt, iter) {
+    var base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt: salt, iterations: iter, hash: 'SHA-256' },
+      base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+    );
+  }
+
+  async function encryptJSON(obj, pass, kind) {
+    if (!pass || pass.length < MIN_PASS) throw new Error('Passphrase must be at least ' + MIN_PASS + ' characters.');
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var key = await deriveKey(pass, salt, PBKDF2_ITER);
+    var ct = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: iv, additionalData: aad(kind) },
+      key, new TextEncoder().encode(JSON.stringify(obj))
+    );
+    return { app: APP, v: FORMAT_VERSION, kind: kind, kdf: 'PBKDF2-SHA256', iter: PBKDF2_ITER, salt: b64(salt), iv: b64(iv), ct: b64(ct) };
+  }
+
+  async function decryptJSON(envelope, pass, kind) {
+    if (!envelope || envelope.app !== APP || !envelope.ct || !envelope.salt || !envelope.iv) throw new Error('This is not a Chipmunk Chat export file.');
+    if (envelope.kind !== kind) throw new Error('Wrong file type. Expected "' + kind + '" but this file is "' + envelope.kind + '".');
+    if (envelope.v !== FORMAT_VERSION) throw new Error('Unsupported file version.');
+    var iter = Number(envelope.iter);
+    if (!(iter >= 100000 && iter <= 5000000)) throw new Error('Invalid file settings.');
+    try {
+      var key = await deriveKey(pass, unb64(envelope.salt), iter);
+      var pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(envelope.iv), additionalData: aad(kind) }, key, unb64(envelope.ct));
+      return JSON.parse(new TextDecoder().decode(pt));
+    } catch (e) {
+      throw new Error('Wrong passphrase, or the file was changed or damaged.');
+    }
+  }
+
+  // ---------- TURN config ----------
+  function normalizeTurn(input) {
+    var list = Array.isArray(input) ? input : (input && input.iceServers) || [];
+    var out = [];
+    list.forEach(function (s) {
+      if (!s || !s.urls) return;
+      var urls = (Array.isArray(s.urls) ? s.urls : [s.urls]).map(function (u) { return String(u).trim(); })
+        .filter(function (u) { return /^(turns?|stuns?):/i.test(u); });
+      if (!urls.length) return;
+      var e = { urls: urls };
+      if (s.username) e.username = String(s.username);
+      if (s.credential) e.credential = String(s.credential);
+      out.push(e);
+    });
+    if (!out.length) throw new Error('No valid TURN/STUN servers found (urls must start with turn:, turns: or stun:).');
+    return { iceServers: out };
+  }
+  function getTurn() {
+    if (hooks.loadTurn) { try { return hooks.loadTurn() || null; } catch (e) { return null; } }
+    try { var raw = localStorage.getItem(TURN_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+  }
+  function putTurn(obj) {
+    if (hooks.persistTurn) { hooks.persistTurn(obj); return; }
+    if (obj) localStorage.setItem(TURN_KEY, JSON.stringify(obj)); else localStorage.removeItem(TURN_KEY);
+  }
+  function saveTurn(cfg) {
+    var clean = normalizeTurn(cfg); clean.savedAt = new Date().toISOString();
+    putTurn(clean); hooks.onTurnChange(clean);
+    return clean;
+  }
+  function clearTurn() { putTurn(null); hooks.onTurnChange(null); }
+  function getRtcConfig() { var t = getTurn(); return { iceServers: t ? t.iceServers : [], iceCandidatePoolSize: 2 }; }
+
+  // ---------- contacts ("rooms") ----------
+  function cleanRooms(list) {
+    if (!Array.isArray(list)) throw new Error('Contact list is not valid.');
+    var out = [];
+    list.forEach(function (r) {
+      if (r && typeof r.code === 'string' && r.code.length >= 8) {
+        var e = { title: String(r.title || 'Contact'), code: r.code };
+        if (r.secret) e.secret = String(r.secret);
+        out.push(e);
+      }
+    });
+    return out;
+  }
+  function mergeRooms(existing, incoming) {
+    var seen = {}, out = [];
+    existing.concat(incoming).forEach(function (r) { if (!seen[r.code]) { seen[r.code] = 1; out.push(r); } });
+    return out;
+  }
+
+  // ---------- files ----------
+  function stamp() { return new Date().toISOString().slice(0, 10).replace(/-/g, ''); }
+  async function saveOut(name, obj) {
+    var text = JSON.stringify(obj, null, 2);
+    if (hooks.saveFile) return hooks.saveFile(name, text);
+    var blob = new Blob([text], { type: 'application/json' });
+    var url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 1500);
+  }
+  function pickFile() {
+    return new Promise(function (resolve, reject) {
+      var inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
+      inp.onchange = function () {
+        var f = inp.files && inp.files[0]; if (!f) return reject(new Error('Cancelled.'));
+        if (f.size > 2 * 1024 * 1024) return reject(new Error('File is too large.'));
+        var rd = new FileReader();
+        rd.onload = function () { try { resolve(JSON.parse(rd.result)); } catch (e) { reject(new Error('File is not valid JSON.')); } };
+        rd.onerror = function () { reject(new Error('Could not read the file.')); };
+        rd.readAsText(f);
+      };
+      inp.click();
+    });
+  }
+
+  // ---------- UI ----------
+  var FALLBACK = {
+    'lock': '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+    'key-round': '<circle cx="8" cy="15" r="4"/><path d="M11 12l8-8M16 7l3 3M14 9l2 2"/>',
+    'server': '<rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/>',
+    'shield-check': '<path d="M12 3l8 3v5c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/>',
+    'upload': '<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>',
+    'download': '<path d="M12 4v12M7 11l5 5 5-5M4 20h16"/>',
+    'trash-2': '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>'
+  };
+  function icon(name) {
+    if (hooks.icon) { var h = hooks.icon(name); if (h) return h; }
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:inline-block;vertical-align:-0.15em">' + (FALLBACK[name] || '') + '</svg>';
+  }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); }
+
+  var C = {
+    card: 'bg-black/50 p-3 rounded-2xl border border-zinc-800 space-y-2 text-left',
+    title: 'text-xs font-semibold text-zinc-300',
+    hint: 'text-[10px] text-zinc-500',
+    btn: 'py-2 text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl',
+    input: 'w-full px-3 py-2 bg-black border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500'
+  };
+
+  function askPassphrase(title, confirmToo) {
+    return new Promise(function (resolve, reject) {
+      var d = document.createElement('dialog');
+      d.style.cssText = 'background:transparent;border:0;padding:0;max-width:100vw';
+      d.innerHTML =
+        '<form method="dialog" class="panel-bg text-white rounded-3xl p-5 border border-zinc-800 shadow-2xl space-y-3 text-left" style="width:min(92vw,24rem)">' +
+        '<h3 class="text-sm font-bold">' + esc(title) + '</h3>' +
+        '<label class="block text-xs text-zinc-300">Passphrase (at least ' + MIN_PASS + ' characters)' +
+        '<input id="cm-p1" type="password" autocomplete="off" class="mt-1 ' + C.input + '"></label>' +
+        (confirmToo ? '<label class="block text-xs text-zinc-300">Repeat passphrase<input id="cm-p2" type="password" autocomplete="off" class="mt-1 ' + C.input + '"></label>' : '') +
+        '<p id="cm-perr" class="text-xs text-red-400" style="min-height:1rem"></p>' +
+        (confirmToo ? '<p class="' + C.hint + '">Send the passphrase by a different channel than the file (a call or Signal, not the same email).</p>' : '') +
+        '<div class="flex justify-end gap-2"><button value="cancel" class="px-4 ' + C.btn + '">Cancel</button>' +
+        '<button id="cm-ok" value="ok" class="px-4 py-2 text-xs font-semibold accent-bg text-white rounded-xl">OK</button></div></form>';
+      document.body.appendChild(d); d.showModal();
+      d.addEventListener('keydown', function (e) { e.stopPropagation(); });   // keep Esc from also closing the Settings modal
+      var p1 = d.querySelector('#cm-p1'), p2 = d.querySelector('#cm-p2'), err = d.querySelector('#cm-perr');
+      p1.focus();
+      d.querySelector('#cm-ok').addEventListener('click', function (ev) {
+        if (p1.value.length < MIN_PASS) { ev.preventDefault(); err.textContent = 'Too short. Use at least ' + MIN_PASS + ' characters.'; return; }
+        if (confirmToo && p1.value !== p2.value) { ev.preventDefault(); err.textContent = 'Passphrases do not match.'; }
+      });
+      d.addEventListener('close', function () {
+        var ok = d.returnValue === 'ok', v = p1.value; p1.value = ''; if (p2) p2.value = ''; d.remove();
+        ok ? resolve(v) : reject(new Error('Cancelled.'));
+      });
+    });
+  }
+
+  function say(root, msg, bad) {
+    var t = root.querySelector('[data-cm-status]'); if (!t) return;
+    t.textContent = msg; t.className = 'text-[11px] ' + (bad ? 'text-red-400' : 'text-emerald-400');
+  }
+  function fail(root, e) { if (e && e.message !== 'Cancelled.') say(root, e.message || 'Something went wrong.', true); }
+
+  async function exportRooms(root) {
+    try {
+      var rooms = cleanRooms(hooks.getRooms());
+      if (!rooms.length) throw new Error('There are no contacts to export.');
+      var pass = await askPassphrase('Encrypt contact list', true);
+      var env = await encryptJSON({ rooms: rooms, exportedAt: new Date().toISOString() }, pass, 'room-ids');
+      var where = await saveOut('chipmunk-contacts-' + stamp() + '.json', env);
+      say(root, 'Exported ' + rooms.length + ' contact(s), encrypted.' + (where ? ' ' + where : ''));
+    } catch (e) { fail(root, e); }
+  }
+  async function importRooms(root) {
+    try {
+      var env = await pickFile();
+      var pass = await askPassphrase('Decrypt contact list', false);
+      var data = await decryptJSON(env, pass, 'room-ids');
+      var incoming = cleanRooms(data.rooms), added;
+      if (hooks.addRooms) added = await hooks.addRooms(incoming);
+      else { var ex = cleanRooms(hooks.getRooms()), m = mergeRooms(ex, incoming); await hooks.setRooms(m); added = m.length - ex.length; }
+      say(root, 'Added ' + added + ' new contact(s). ' + (incoming.length - added) + ' skipped (already there or invalid). Existing contacts were kept.');
+    } catch (e) { fail(root, e); }
+  }
+  async function exportTurn(root) {
+    try {
+      var t = getTurn(); if (!t) throw new Error('No TURN config saved yet. Save one first.');
+      var pass = await askPassphrase('Encrypt TURN config', true);
+      var env = await encryptJSON({ iceServers: t.iceServers, exportedAt: new Date().toISOString() }, pass, 'turn-config');
+      var where = await saveOut('chipmunk-turn-' + stamp() + '.json', env);
+      say(root, 'TURN config exported, encrypted.' + (where ? ' ' + where : ''));
+    } catch (e) { fail(root, e); }
+  }
+  async function importTurn(root) {
+    try {
+      var env = await pickFile();
+      var pass = await askPassphrase('Decrypt TURN config', false);
+      var data = await decryptJSON(env, pass, 'turn-config');
+      saveTurn(data); refreshTurnInfo(root);
+      say(root, 'TURN config imported and saved on this device.');
+    } catch (e) { fail(root, e); }
+  }
+
+  function parseTurnForm(root) {
+    var raw = root.querySelector('[data-cm-json]').value.trim();
+    if (raw) { try { return normalizeTurn(JSON.parse(raw)); } catch (e) { throw new Error('Pasted JSON is not valid: ' + e.message); } }
+    var urls = root.querySelector('[data-cm-urls]').value.split(/\s*[\n,]\s*/).filter(Boolean);
+    return normalizeTurn([{ urls: urls, username: root.querySelector('[data-cm-user]').value.trim(), credential: root.querySelector('[data-cm-cred]').value }]);
+  }
+  function refreshTurnInfo(root) {
+    var t = getTurn(), el = root.querySelector('[data-cm-turninfo]'); if (!el) return;
+    el.innerHTML = t
+      ? icon('shield-check') + ' Saved on this device: ' + t.iceServers.length + ' server entr' + (t.iceServers.length === 1 ? 'y' : 'ies') + ' (' + esc(new Date(t.savedAt).toLocaleString()) + ')'
+      : icon('server') + ' No TURN relay saved. Calls may fail on strict networks.';
+  }
+
+  function renderSettings(root) {
+    var g = 'grid grid-cols-2 gap-2';
+    root.innerHTML =
+      '<div class="' + C.card + '">' +
+      '<span class="' + C.title + '">Contacts (encrypted file)</span>' +
+      '<div class="' + g + '"><button data-act="rooms-export" class="' + C.btn + '">' + icon('download') + ' Export contacts</button>' +
+      '<button data-act="rooms-import" class="' + C.btn + '">' + icon('upload') + ' Import contacts</button></div>' +
+      '<p class="' + C.hint + '">Saves every contact\'s ID and secret in a file locked with a passphrase you choose. Importing adds contacts and never deletes existing ones.</p></div>' +
+
+      '<div class="' + C.card + '">' +
+      '<span class="' + C.title + '">TURN relay (for calls on strict networks)</span>' +
+      '<p class="' + C.hint + '">Kept on this device only (inside your PIN-protected vault), never in the app code. Paste the <em>iceServers</em> JSON from your TURN provider, or fill in the fields.</p>' +
+      '<textarea data-cm-json rows="3" placeholder=\'[{"urls":"turn:...","username":"...","credential":"..."}]\' class="' + C.input + ' font-mono"></textarea>' +
+      '<p class="' + C.hint + ' text-center">or</p>' +
+      '<textarea data-cm-urls rows="2" placeholder="turn:example.metered.live:80&#10;turns:example.metered.live:443?transport=tcp" class="' + C.input + ' font-mono"></textarea>' +
+      '<div class="' + g + '"><input data-cm-user placeholder="Username" autocomplete="off" class="' + C.input + '">' +
+      '<input data-cm-cred type="password" placeholder="Credential" autocomplete="off" class="' + C.input + '"></div>' +
+      '<p data-cm-turninfo class="text-[11px] text-zinc-400"></p>' +
+      '<div class="' + g + '"><button data-act="turn-save" class="py-2 text-xs font-semibold accent-bg text-white rounded-xl">' + icon('shield-check') + ' Save</button>' +
+      '<button data-act="turn-clear" class="' + C.btn + '">' + icon('trash-2') + ' Remove</button>' +
+      '<button data-act="turn-export" class="' + C.btn + '">' + icon('download') + ' Export TURN</button>' +
+      '<button data-act="turn-import" class="' + C.btn + '">' + icon('upload') + ' Import TURN</button></div>' +
+      '<p data-cm-status class="text-[11px]" role="status"></p></div>';
+
+    root.addEventListener('click', function (ev) {
+      var b = ev.target.closest('[data-act]'); if (!b) return;
+      var a = b.getAttribute('data-act');
+      if (a === 'rooms-export') exportRooms(root);
+      else if (a === 'rooms-import') importRooms(root);
+      else if (a === 'turn-export') exportTurn(root);
+      else if (a === 'turn-import') importTurn(root);
+      else if (a === 'turn-save') {
+        try {
+          saveTurn(parseTurnForm(root));
+          ['[data-cm-json]', '[data-cm-urls]', '[data-cm-user]', '[data-cm-cred]'].forEach(function (s) { root.querySelector(s).value = ''; });
+          refreshTurnInfo(root); say(root, 'TURN relay saved on this device.');
+        } catch (e) { say(root, e.message, true); }
+      } else if (a === 'turn-clear') {
+        if (confirm('Remove the saved TURN relay from this device?')) { clearTurn(); refreshTurnInfo(root); say(root, 'TURN relay removed.'); }
+      }
+    });
+    refreshTurnInfo(root);
+  }
+
+  global.ChipmunkIO = {
+    init: function (h) { Object.assign(hooks, h || {}); },
+    renderSettings: renderSettings, refresh: function (root) { refreshTurnInfo(root); },
+    getRtcConfig: getRtcConfig, getTurn: getTurn, saveTurn: saveTurn, clearTurn: clearTurn,
+    encryptJSON: encryptJSON, decryptJSON: decryptJSON,
+    normalizeTurn: normalizeTurn, cleanRooms: cleanRooms, mergeRooms: mergeRooms
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+    </script>
+
+    <script>
+        /* ================= Helpers ================= */
+        const $ = id => document.getElementById(id);
+        const show = (el, on) => el.classList.toggle('hidden', !on);
+        const te = new TextEncoder(), td = new TextDecoder();
+        const hex = u => Array.from(u).map(b => b.toString(16).padStart(2, '0')).join('');
+        const unhex = h => new Uint8Array(h.match(/../g).map(x => parseInt(x, 16)));
+        const b64 = u => { let s = ''; u.forEach(b => s += String.fromCharCode(b)); return btoa(s); };
+        const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+        const rnd = n => crypto.getRandomValues(new Uint8Array(n));
+        const cat = (...a) => { const o = new Uint8Array(a.reduce((n, x) => n + x.length, 0)); let p = 0; a.forEach(x => { o.set(x, p); p += x.length; }); return o; };
+        const sha = async u => new Uint8Array(await crypto.subtle.digest('SHA-256', u));
+        const cleanName = s => String(s || '').replace(/[\u0000-\u001f|]/g, '').trim().slice(0, 30);
+        const timeStr = ts => new Date(ts || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const fmtDur = ms => { const s = Math.floor(ms / 1000); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
+
+        function genCode(len) {
+            const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            const limit = 256 - (256 % chars.length);
+            let out = '';
+            while (out.length < len) {
+                const buf = crypto.getRandomValues(new Uint8Array(len));
+                for (const b of buf) { if (b < limit && out.length < len) out += chars[b % chars.length]; }
+            }
+            return out;
+        }
+
+        /* ================= Android app bridge (V2.5) ================= */
+        const NATIVE = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
+        const CB = NATIVE ? window.Capacitor.registerPlugin('ChipmunkBackground') : null;
+        let appActive = true;
+        const CALL_NID = 1002;
+        const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } };
+        const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+        const bgOn = () => lsGet('cc_bg_on', '1') !== '0';
+        const bgWake = () => lsGet('cc_bg_wake', '1') !== '0';
+        const msgNid = cid => 2000 + (Array.from(cid).reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % 90000);
+        async function nativeStart() {
+            if (!NATIVE || !bgOn()) return;
+            try {
+                await CB.requestNotificationPermission();
+                await CB.start({ title: 'Chipmunk Chat', text: 'Listening for messages and calls', wakeLock: bgWake() });
+            } catch (e) { toast('Background mode could not start'); }
+        }
+        function nativeStop() { if (NATIVE) { try { CB.stop(); } catch (e) {} } }
+        function nativeNotify(o) { if (NATIVE) { try { CB.notify(o); } catch (e) {} } }
+        function nativeCancel(id) { if (NATIVE) { try { CB.cancel({ id }); } catch (e) {} } }
+        function nativeOverLock(on) { if (NATIVE) { try { CB.overLock({ on }); } catch (e) {} } }
+        function nativeCallMode(on, video) { if (NATIVE && bgOn()) { try { CB.callMode({ on, video: !!video }); } catch (e) {} } }
+        async function refreshBg() {
+            show($('bgCard'), NATIVE);
+            if (!NATIVE) return;
+            $('bgToggle').checked = bgOn(); $('wakeToggle').checked = bgWake();
+            try {
+                const r = await CB.batteryStatus();
+                $('batteryState').textContent = r.unrestricted ? 'Battery use: unrestricted. Good.' : 'Battery use: restricted. Android may stop the app in the background. Tap the button below.';
+            } catch (e) {}
+        }
+        function wireNative() {
+            if (!NATIVE) return;
+            CB.addListener('state', e => {
+                appActive = !!(e && e.active);
+                if (appActive && vault) {
+                    if (active && view === 'chat') { chatOf(active).unread = 0; nativeCancel(msgNid(active)); renderList(); updateTitle(); }
+                    dialLoop();
+                }
+            });
+            CB.addListener('tap', e => {
+                if (!vault || !e || e.kind !== 'msg' || !e.cid || !getCt(e.cid)) return;
+                openChat(e.cid);
+            });
+            const APP = window.Capacitor.registerPlugin('App');
+            APP.addListener('backButton', () => {
+                const open = Array.from(document.querySelectorAll('.modal')).filter(m => !m.classList.contains('hidden'));
+                if (open.length) return closeModal(open[open.length - 1]);
+                if (call) return;
+                if (view === 'chat') return closeChat();
+                APP.minimizeApp();
+            });
+            $('bgToggle').addEventListener('change', e => { lsSet('cc_bg_on', e.target.checked ? '1' : '0'); if (e.target.checked) nativeStart(); else nativeStop(); });
+            $('wakeToggle').addEventListener('change', e => { lsSet('cc_bg_wake', e.target.checked ? '1' : '0'); if (bgOn()) nativeStart(); });
+            $('btnBattery').addEventListener('click', async () => { try { await CB.requestUnrestricted(); } catch (e) {} setTimeout(refreshBg, 1500); });
+            $('btnNotifPerm').addEventListener('click', async () => {
+                try { const r = await CB.requestNotificationPermission(); toast(r.granted ? 'Notifications allowed' : 'Notifications are blocked. Enable them in Android settings.'); } catch (e) {}
+            });
+        }
+
+        /* ================= State ================= */
+        const VK = 'ck2_vault';
+        let vault = null, vkey = null, vsalt = null, locked = true;
+        let view = 'lock', active = null;
+        let peer = null, myAddr = '', netT = null, loopT = null;
+        let net = { kind: 'idle', text: 'Private & Encrypted' };
+        let live = {}, dialing = {}, chats = {};
+        let call = null;
+        let saveQ = Promise.resolve();
+
+        /* ================= Toast ================= */
+        let toastTimer = null;
+        function toast(msg) {
+            const t = $('toast');
+            t.textContent = msg;
+            t.classList.remove('hidden'); t.classList.add('flex');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => { t.classList.add('hidden'); t.classList.remove('flex'); }, 3200);
+        }
+
+        /* ================= Theme ================= */
+        function setAccentColor(c) {
+            try { localStorage.setItem('cc_accent_color', c); } catch (e) {}
+            document.documentElement.style.setProperty('--accent-color', c);
+            $('appTitleHeader').style.color = c;
+        }
+        function setAppTheme(theme) {
+            if (!['black', 'dark', 'light'].includes(theme)) theme = 'black';
+            try { localStorage.setItem('cc_app_theme', theme); } catch (e) {}
+            document.documentElement.setAttribute('data-theme', theme);
+            document.documentElement.classList.toggle('dark', theme !== 'light');
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', { black: '#000000', dark: '#0f172a', light: '#f1f5f9' }[theme]);
+        }
+
+        /* ================= Vault (contacts + secrets, PIN-encrypted) ================= */
+        async function pinKey(pin, salt) {
+            const base = await crypto.subtle.importKey('raw', te.encode(pin), 'PBKDF2', false, ['deriveKey']);
+            return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+        }
+        async function writeVault() {
+            if (!vault) return;
+            const json = JSON.stringify(vault, (k, v) => (typeof k === 'string' && k[0] === '_') ? undefined : v);
+            let rec;
+            if (vkey) {
+                const iv = rnd(12);
+                const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, vkey, te.encode(json)));
+                rec = { v: 2, e: 1, s: b64(vsalt), iv: b64(iv), d: b64(ct) };
+            } else rec = { v: 2, e: 0, d: json };
+            try { localStorage.setItem(VK, JSON.stringify(rec)); } catch (e) { toast('Could not save (storage full or blocked)'); }
+        }
+        const save = () => (saveQ = saveQ.then(writeVault, writeVault));
+        async function openRecord(rec, pin) {
+            if (!rec.e) return { vault: JSON.parse(rec.d), key: null, salt: null };
+            const salt = unb64(rec.s);
+            const key = await pinKey(pin, salt);
+            const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(rec.iv) }, key, unb64(rec.d));
+            return { vault: JSON.parse(td.decode(pt)), key, salt };
+        }
+
+        /* ================= Lock screen ================= */
+        let lockKind = 'unlock';
+        function lockMode(kind) {
+            lockKind = kind;
+            setView('lock');
+            $('pinInput').value = ''; $('pinInput2').value = '';
+            const setup = kind === 'setup';
+            $('lockTitle').textContent = setup ? 'Welcome to Chipmunk Chat' : 'Unlock Chipmunk Chat';
+            $('lockSub').textContent = setup ? 'Create a PIN. It protects your contacts and secrets on this device.' : 'Enter your PIN to open your contacts.';
+            $('pinInput').placeholder = setup ? 'Choose a PIN (4+ characters)' : 'PIN';
+            show($('pinInput2'), setup);
+            show($('btnSkipPin'), setup);
+            show($('btnForgot'), !setup);
+            $('btnLockGo').textContent = setup ? 'Create my ID' : 'Unlock';
+            setTimeout(() => $('pinInput').focus(), 50);
+        }
+        async function lockGo() {
+            const btn = $('btnLockGo');
+            if (btn.disabled) return;
+            const pin = $('pinInput').value;
+            if (lockKind === 'setup') {
+                if (pin.length < 4) return toast('PIN must be at least 4 characters');
+                if (pin !== $('pinInput2').value) return toast('PINs do not match');
+                btn.disabled = true;
+                try { vsalt = rnd(16); vkey = await pinKey(pin, vsalt); await createVault(); } finally { btn.disabled = false; }
+            } else {
+                btn.disabled = true;
+                try {
+                    const rec = JSON.parse(localStorage.getItem(VK));
+                    const o = await openRecord(rec, pin);
+                    await enterApp(o);
+                } catch (e) {
+                    await new Promise(r => setTimeout(r, 800));
+                    toast('Wrong PIN');
+                } finally { btn.disabled = false; }
+            }
+        }
+        async function createVault() {
+            vault = { myId: genCode(56), myName: '', contacts: [], invites: [] };
+            await save();
+            await enterApp({ vault, key: vkey, salt: vsalt });
+        }
+
+        /* ================= Views ================= */
+        const HB = { lock: [], list: ['btnAdd', 'openSettingsBtn'], chat: ['btnBack', 'btnVoice', 'btnVideo', 'btnMenu'] };
+        function setView(v) {
+            view = v;
+            ['lock', 'list', 'chat'].forEach(n => show($(n + 'View'), n === v));
+            document.querySelectorAll('.hdr').forEach(b => show(b, HB[v].includes(b.id)));
+            show($('logoImg'), v !== 'chat');
+            updateHeader(); refreshChatUi();
+        }
+        function setNet(kind, text) { net = { kind, text }; updateHeader(); }
+        function dotClass(kind) {
+            return 'inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ' + ({ ok: 'bg-emerald-400', wait: 'bg-amber-400', bad: 'bg-red-500', connecting: 'bg-zinc-400 dot-connecting' }[kind] || 'bg-zinc-500');
+        }
+        function updateHeader() {
+            let kind, text;
+            if (view === 'chat') {
+                const ct = getCt(active), c = active && live[active];
+                $('appTitleHeader').textContent = ct ? ct.name : '';
+                if (c && c._s.ok) { kind = 'ok'; text = 'Online · end-to-end encrypted'; }
+                else if (net.kind === 'ok') { kind = 'wait'; text = ct && !ct.confirmed ? 'Waiting for first connection...' : 'Offline · waiting for them...'; }
+                else { kind = 'idle'; text = 'You are not connected to the network'; }
+            } else if (view === 'lock') {
+                $('appTitleHeader').textContent = 'CHIPMUNK CHAT'; kind = 'idle'; text = 'Private & Encrypted';
+            } else { $('appTitleHeader').textContent = 'CHIPMUNK CHAT'; kind = net.kind; text = net.text; }
+            $('statusDot').className = dotClass(kind);
+            $('statusText').textContent = text;
+        }
+        function refreshChatUi() {
+            if (view !== 'chat' || !active) return;
+            const c = live[active], ok = !!(c && c._s.ok);
+            const ct = getCt(active);
+            $('msgInput').disabled = !ok; $('btnSend').disabled = !ok;
+            $('attachLbl').classList.toggle('opacity-40', !ok);
+            $('attachLbl').classList.toggle('pointer-events-none', !ok);
+            $('btnVoice').disabled = !ok || !!call; $('btnVideo').disabled = !ok || !!call;
+            $('msgInput').placeholder = ok ? 'Type a message...' : 'Waiting for ' + (ct ? ct.name : 'contact') + ' to come online...';
+        }
+        function updateTitle() {
+            let n = 0; Object.values(chats).forEach(c => n += c.unread || 0);
+            document.title = (n ? '(' + n + ') ' : '') + 'Chipmunk Chat';
+        }
+
+        /* ================= Contacts list ================= */
+        const getCt = cid => vault ? vault.contacts.find(c => c.cid === cid) : null;
+        function chatOf(cid) { return chats[cid] || (chats[cid] = { msgs: [], unread: 0, last: 0 }); }
+        function renderList() {
+            if (!vault) return;
+            const box = $('contactList'); box.innerHTML = '';
+            const isOn = c => !!(live[c.cid] && live[c.cid]._s.ok);
+            const cts = [...vault.contacts].sort((a, b) => (isOn(b) - isOn(a)) || ((chatOf(b.cid).last || 0) - (chatOf(a.cid).last || 0)) || a.name.localeCompare(b.name));
+            show($('emptyList'), cts.length === 0);
+            for (const ct of cts) {
+                const ch = chatOf(ct.cid), on = isOn(ct);
+                const last = [...ch.msgs].reverse().find(m => m.who !== 'sys');
+                const row = document.createElement('button');
+                row.className = 'contact-row w-full flex items-center gap-3 px-4 py-3 text-left';
+                const av = document.createElement('div');
+                av.className = 'relative w-11 h-11 rounded-full accent-bg text-white flex items-center justify-center font-bold flex-shrink-0';
+                av.textContent = ([...ct.name][0] || '?').toUpperCase();
+                const dot = document.createElement('span');
+                dot.className = 'absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-black ' + (on ? 'bg-emerald-400' : 'bg-zinc-500');
+                av.appendChild(dot);
+                const mid = document.createElement('div'); mid.className = 'flex-1 min-w-0';
+                const nm = document.createElement('p'); nm.className = 'text-sm font-semibold text-white truncate'; nm.textContent = ct.name;
+                const pv = document.createElement('p'); pv.className = 'text-[11px] text-zinc-400 truncate';
+                pv.textContent = last ? (last.who === 'me' ? 'You: ' : '') + (last.img ? 'Photo' : last.text) : (on ? 'Online' : (ct.confirmed ? 'Offline' : 'Waiting for first connection...'));
+                mid.append(nm, pv);
+                row.append(av, mid);
+                if (ch.unread) {
+                    const bd = document.createElement('span');
+                    bd.className = 'accent-bg text-white text-[10px] font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center';
+                    bd.textContent = ch.unread > 99 ? '99+' : ch.unread; row.appendChild(bd);
+                }
+                row.addEventListener('click', () => openChat(ct.cid));
+                box.appendChild(row);
+            }
+        }
+
+        /* ================= Chat ================= */
+        function openChat(cid) {
+            active = cid; chatOf(cid).unread = 0; nativeCancel(msgNid(cid));
+            setView('chat'); renderChat(); updateTitle(); renderList(); dialLoop();
+        }
+        function closeChat() { active = null; setView('list'); renderList(); }
+        function renderChat() {
+            const m = $('msgs'); m.innerHTML = '';
+            chatOf(active).msgs.forEach(e => m.appendChild(msgDom(e)));
+            scrollDown();
+        }
+        function scrollDown() { const m = $('msgs'); m.scrollTop = m.scrollHeight; }
+        function msgDom(e) {
+            if (e.who === 'sys') {
+                const d = document.createElement('div');
+                d.className = 'text-center text-[10px] text-zinc-500 py-1'; d.textContent = e.text; return d;
+            }
+            const row = document.createElement('div');
+            row.className = 'flex ' + (e.who === 'me' ? 'justify-end' : 'justify-start');
+            const b = document.createElement('div');
+            b.className = e.who === 'me'
+                ? 'accent-bg text-white rounded-2xl rounded-br-md px-3 py-2 max-w-[80%]'
+                : 'panel-bg border border-zinc-800 text-white rounded-2xl rounded-bl-md px-3 py-2 max-w-[80%]';
+            if (e.img) {
+                const im = document.createElement('img');
+                im.src = e.img; im.alt = 'Photo'; im.className = 'rounded-xl max-h-64 max-w-full cursor-pointer';
+                im.addEventListener('click', () => { $('viewerImg').src = e.img; show($('viewerModal'), true); });
+                b.appendChild(im);
+            }
+            if (e.text) {
+                const p = document.createElement('p');
+                p.className = 'text-sm whitespace-pre-wrap break-words'; p.textContent = e.text; b.appendChild(p);
+            }
+            const t = document.createElement('p');
+            t.className = 'text-[9px] opacity-60 text-right mt-0.5'; t.textContent = timeStr(e.ts);
+            b.appendChild(t); row.appendChild(b); return row;
+        }
+        function pushMsg(cid, who, m) {
+            const ch = chatOf(cid);
+            const e = Object.assign({ who, ts: Date.now() }, m);
+            ch.msgs.push(e); if (ch.msgs.length > 200) ch.msgs.shift();
+            if (who !== 'sys') ch.last = e.ts;
+            const looking = active === cid && view === 'chat' && !document.hidden && appActive;
+            if (who === 'them' && !looking) {
+                ch.unread++; try { navigator.vibrate && navigator.vibrate(60); } catch (x) {}
+                if (NATIVE && !appActive) { const ct = getCt(cid); nativeNotify({ id: msgNid(cid), kind: 'msg', cid, title: ct ? ct.name : 'Chipmunk Chat', text: e.img ? 'Sent a photo' : 'New message' }); }
+            }
+            if (active === cid && view === 'chat') { $('msgs').appendChild(msgDom(e)); scrollDown(); }
+            renderList(); updateTitle();
+        }
+        const pushSys = (cid, text) => pushMsg(cid, 'sys', { text });
+
+        async function sendText() {
+            const inp = $('msgInput'), text = inp.value.trim(), c = live[active];
+            if (!text || !c || !c._s.ok) return;
+            if (await sendEnc(c, { t: 'msg', d: text.slice(0, 4000) })) { pushMsg(active, 'me', { text: text.slice(0, 4000) }); inp.value = ''; inp.style.height = 'auto'; }
+            else toast('Not connected');
+        }
+        function fileToJpeg(file) {
+            return new Promise((res, rej) => {
+                const url = URL.createObjectURL(file), im = new Image();
+                im.onload = () => {
+                    let w = im.naturalWidth, h = im.naturalHeight;
+                    const s = Math.min(1, 1600 / Math.max(w, h));
+                    w = Math.round(w * s); h = Math.round(h * s);
+                    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+                    const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); ctx.drawImage(im, 0, 0, w, h);
+                    URL.revokeObjectURL(url); res(cv.toDataURL('image/jpeg', 0.82));
+                };
+                im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('bad image')); };
+                im.src = url;
+            });
+        }
+        async function sendPhotos(files) {
+            const cid = active;
+            for (const f of files) {
+                const c = live[cid];
+                if (!c || !c._s.ok) return toast('Not connected');
+                try {
+                    const d = await fileToJpeg(f);
+                    if (d.length > 6000000) { toast('Photo too large'); continue; }
+                    if (await sendEnc(c, { t: 'img', d })) pushMsg(cid, 'me', { img: d });
+                } catch (e) { toast('Could not read that photo'); }
+            }
+        }
+
+        /* ================= Crypto: per-contact secret + ephemeral ECDH ================= */
+        const addrOf = async id => 'ck2-' + hex((await sha(te.encode('chipmunk-addr|' + id))).slice(0, 20));
+        async function hkOf(o) {
+            if (!o._hk) o._hk = await crypto.subtle.importKey('raw', te.encode(o.secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
+            return o._hk;
+        }
+        const macHex = async (k, s) => hex(new Uint8Array(await crypto.subtle.sign('HMAC', k, te.encode(s))));
+        const macOk = (k, h, s) => crypto.subtle.verify('HMAC', k, unhex(h), te.encode(s));
+        async function kidOf(secret) {
+            const k = await crypto.subtle.importKey('raw', te.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+            return (await macHex(k, 'kid')).slice(0, 16);
+        }
+        async function genEph() {
+            const kp = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']);
+            return { priv: kp.privateKey, pub: new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey)) };
+        }
+        async function finishKeys(st, owner, eph, theirPub, na, nb) {
+            const pk = await crypto.subtle.importKey('raw', theirPub, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+            const bits = await crypto.subtle.deriveBits({ name: 'ECDH', public: pk }, eph.priv, 256);
+            const salt = await sha(cat(te.encode(owner.secret), na, nb));
+            const hk = await crypto.subtle.importKey('raw', bits, 'HKDF', false, ['deriveBits']);
+            const out = new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt, info: te.encode('chipmunk-v2-session') }, hk, 512));
+            st.key = await crypto.subtle.importKey('raw', out.slice(0, 32), 'AES-GCM', false, ['encrypt', 'decrypt']);
+            st.mk = await crypto.subtle.importKey('raw', out.slice(32), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
+        }
+        async function enc(key, obj) {
+            const iv = rnd(12);
+            const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, te.encode(JSON.stringify(obj))));
+            return cat(iv, ct);
+        }
+        async function dec(key, data) {
+            let u;
+            if (data instanceof ArrayBuffer) u = new Uint8Array(data);
+            else if (ArrayBuffer.isView(data)) u = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+            else throw new Error('bad data');
+            if (u.length < 29) throw new Error('short');
+            const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: u.slice(0, 12) }, key, u.slice(12));
+            return JSON.parse(td.decode(pt));
+        }
+        async function sendEnc(c, obj) {
+            if (!c || !c.open || !c._s || !c._s.key) return false;
+            try { c.send(await enc(c._s.key, obj)); return true; } catch (e) { return false; }
+        }
+
+        /* ================= Networking (PeerJS broker + WebRTC data channels) ================= */
+        async function startNet() {
+            stopNet();
+            myAddr = await addrOf(vault.myId);
+            connectPeer();
+            loopT = setInterval(dialLoop, 8000);
+        }
+        function stopNet() { clearTimeout(netT); clearInterval(loopT); destroyPeer(); }
+        function destroyPeer() {
+            const p = peer; peer = null;
+            const conns = Object.values(live);
+            live = {}; dialing = {};
+            conns.forEach(c => { try { c.close(); } catch (e) {} });
+            if (p) { try { p.destroy(); } catch (e) {} }
+        }
+        function connectPeer() {
+            clearTimeout(netT);
+            if (locked || !vault) return;
+            destroyPeer();
+            if (typeof Peer === 'undefined') { setNet('bad', 'Connection library failed to load'); return; }
+            setNet('connecting', 'Connecting...');
+            let p;
+            try { const t = ChipmunkIO.getTurn(), o = { debug: 0 }; if (t && t.iceServers && t.iceServers.length) o.config = { iceServers: t.iceServers, sdpSemantics: 'unified-plan' }; p = new Peer(myAddr, o); } catch (e) { netT = setTimeout(connectPeer, 4000); return; }
+            peer = p;
+            p.on('open', () => { if (peer === p) { setNet('ok', 'Online'); dialLoop(); } });
+            p.on('connection', c => { if (peer === p) incoming(c); });
+            p.on('call', co => { if (peer === p) onCall(co); });
+            p.on('disconnected', () => { if (peer === p && !p.destroyed) { setNet('connecting', 'Reconnecting...'); try { p.reconnect(); } catch (e) {} } });
+            p.on('error', err => {
+                if (peer !== p) return;
+                if (err.type === 'peer-unavailable') return;
+                if (err.type === 'unavailable-id') { setNet('bad', 'Your ID is already online on another device or tab'); netT = setTimeout(connectPeer, 10000); return; }
+                setNet('connecting', 'Reconnecting...');
+                netT = setTimeout(connectPeer, 4000);
+            });
+        }
+        function dialLoop() {
+            if (!peer || !peer.open || locked || !vault) return;
+            for (const ct of vault.contacts) {
+                if (live[ct.cid] || dialing[ct.cid]) continue;
+                // Only one side dials once confirmed (smaller address) so both never dial at once.
+                if (!ct.confirmed || myAddr < ct.addr) dial(ct);
+            }
+        }
+        function dial(ct) {
+            const t0 = Date.now(); dialing[ct.cid] = t0;
+            let c;
+            try { c = peer.connect(ct.addr, { reliable: true }); } catch (e) { delete dialing[ct.cid]; return; }
+            const st = c._s = { role: 'dial', cid: ct.cid, ok: false };
+            const giveUp = setTimeout(() => {
+                if (!st.ok) { try { c.close(); } catch (e) {} }
+                if (dialing[ct.cid] === t0) delete dialing[ct.cid];
+            }, 12000);
+            c.on('open', async () => {
+                try {
+                    const hk = await hkOf(ct);
+                    st.eph = await genEph(); st.na = rnd(16);
+                    const msg = { t: 'h1', kid: ct.kid, epk: b64(st.eph.pub), na: b64(st.na) };
+                    msg.mac = await macHex(hk, 'h1|' + msg.kid + '|' + msg.epk + '|' + msg.na);
+                    c.send(msg);
+                } catch (e) { try { c.close(); } catch (x) {} }
+            });
+            c.on('data', d => onData(c, d));
+            c.on('close', () => { clearTimeout(giveUp); connClosed(c); });
+            c.on('error', () => { clearTimeout(giveUp); connClosed(c); });
+        }
+        function incoming(c) {
+            const st = c._s = { role: 'recv', ok: false };
+            const t = setTimeout(() => { if (!st.ok) { try { c.close(); } catch (e) {} } }, 12000);
+            c.on('data', d => onData(c, d));
+            c.on('close', () => { clearTimeout(t); connClosed(c); });
+            c.on('error', () => { clearTimeout(t); connClosed(c); });
+        }
+        function connClosed(c) {
+            const st = c._s; if (!st || st.dead) return;
+            st.dead = true;
+            if (st.cid) {
+                if (dialing[st.cid]) delete dialing[st.cid];
+                if (live[st.cid] === c) {
+                    delete live[st.cid];
+                    if (st.ok) { pushSys(st.cid, 'Disconnected'); if (call && call.cid === st.cid) endCall(false); }
+                }
+            }
+            renderList(); updateHeader(); refreshChatUi();
+        }
+        function onData(c, d) {
+            const st = c._s; if (!st || st.dead) return;
+            st.q = (st.q || Promise.resolve()).then(() => handle(c, st, d)).catch(() => {});
+        }
+        async function handle(c, st, d) {
+            if (st.dead) return;
+            try {
+                if (d && typeof d === 'object' && !(d instanceof ArrayBuffer) && !ArrayBuffer.isView(d)) {
+                    if (d.t === 'h1') return await onH1(c, st, d);
+                    if (d.t === 'h2') return await onH2(c, st, d);
+                    return;
+                }
+                if (!st.key) return;
+                await onMsg(c, st, await dec(st.key, d));
+            } catch (e) { if (!st.ok) { try { c.close(); } catch (x) {} } }
+        }
+        async function onH1(c, st, d) {
+            const strs = ['kid', 'epk', 'na', 'mac'].every(k => typeof d[k] === 'string' && d[k].length < 200);
+            if (st.role !== 'recv' || st.h1 || !strs) return c.close();
+            st.h1 = 1;
+            const ct = vault.contacts.find(x => x.kid === d.kid);
+            const inv = ct ? null : vault.invites.find(x => x.kid === d.kid);
+            const owner = ct || inv; if (!owner) return c.close();
+            const hk = await hkOf(owner);
+            if (!await macOk(hk, d.mac, 'h1|' + d.kid + '|' + d.epk + '|' + d.na)) return c.close();
+            st.cid = ct ? ct.cid : null; st.inv = inv || null;
+            const eph = await genEph(), nb = rnd(16), epkB = b64(eph.pub), nbB = b64(nb);
+            const mac = await macHex(hk, 'h2|' + d.epk + '|' + d.na + '|' + epkB + '|' + nbB);
+            await finishKeys(st, owner, eph, unb64(d.epk), unb64(d.na), nb);
+            c.send({ t: 'h2', epk: epkB, nb: nbB, mac });
+            await sendEnc(c, { t: 'profile', id: vault.myId, name: myName() });
+        }
+        async function onH2(c, st, d) {
+            const strs = ['epk', 'nb', 'mac'].every(k => typeof d[k] === 'string' && d[k].length < 200);
+            const ct = getCt(st.cid);
+            if (st.role !== 'dial' || st.key || !st.eph || !ct || !strs) return c.close();
+            const hk = await hkOf(ct);
+            if (!await macOk(hk, d.mac, 'h2|' + b64(st.eph.pub) + '|' + b64(st.na) + '|' + d.epk + '|' + d.nb)) return c.close();
+            await finishKeys(st, ct, st.eph, unb64(d.epk), st.na, unb64(d.nb));
+            await sendEnc(c, { t: 'profile', id: vault.myId, name: myName() });
+        }
+        async function onProfile(c, st, m) {
+            if (st.ok || typeof m.id !== 'string' || !/^[A-Za-z0-9]{40,128}$/.test(m.id)) return;
+            let ct;
+            if (st.inv) {
+                if (m.id === vault.myId) return c.close();
+                if (vault.contacts.some(x => x.id === m.id)) { toast('That person is already a contact'); return c.close(); }
+                ct = { cid: hex(rnd(6)), name: cleanName(m.name) || 'New contact', id: m.id, addr: await addrOf(m.id), secret: st.inv.secret, kid: st.inv.kid, confirmed: true, created: Date.now() };
+                vault.contacts.push(ct);
+                vault.invites = vault.invites.filter(x => x !== st.inv);
+                st.cid = ct.cid; st.inv = null;
+                save(); toast('New contact: ' + ct.name);
+                if (!$('addModal').classList.contains('hidden')) { show($('inviteBox'), false); renderInviteList(); }
+            } else {
+                ct = getCt(st.cid); if (!ct) return c.close();
+                if (ct.id !== m.id) { toast('Identity mismatch. Connection refused.'); return c.close(); }
+                if (!ct.confirmed) { ct.confirmed = true; save(); }
+            }
+            if (live[ct.cid] && live[ct.cid] !== c && live[ct.cid]._s.ok) return c.close();
+            st.ok = true; live[ct.cid] = c; delete dialing[ct.cid];
+            pushSys(ct.cid, 'Secure connection established');
+            renderList(); updateHeader(); refreshChatUi();
+        }
+        async function onMsg(c, st, m) {
+            if (!m || typeof m !== 'object') return;
+            if (m.t === 'profile') return onProfile(c, st, m);
+            if (!st.ok) return;
+            const cid = st.cid;
+            if (m.t === 'msg' && typeof m.d === 'string') pushMsg(cid, 'them', { text: m.d.slice(0, 4000) });
+            else if (m.t === 'img' && typeof m.d === 'string' && m.d.startsWith('data:image/jpeg;base64,')) pushMsg(cid, 'them', { img: m.d });
+            else if (m.t === 'ring') onRing(cid, m);
+            else if (m.t === 'accept') onAccept(cid, m);
+            else if (m.t === 'decline' || m.t === 'cancel' || m.t === 'hangup') onCallSignal(cid, m);
+        }
+        const myName = () => vault.myName || ('Chipmunk-' + vault.myId.slice(0, 4));
+
+        /* ================= Calls ================= */
+        function getMedia(video) {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return Promise.reject(new Error('unsupported'));
+            return navigator.mediaDevices.getUserMedia({
+                audio: { echoCancellation: true, noiseSuppression: true },
+                video: video ? { facingMode: 'user', width: { ideal: 1280 } } : false
+            });
+        }
+        async function startCall(video) {
+            const cid = active, c = live[cid], ct = getCt(cid);
+            if (!c || !c._s.ok || call || !ct) return;
+            let stream;
+            try { stream = await getMedia(video); } catch (e) { return toast('Camera or microphone permission denied'); }
+            if (call || !live[cid]) { stream.getTracks().forEach(t => t.stop()); return; }
+            const token = hex(rnd(16));
+            call = { cid, token, video, role: 'caller', stage: 'ringing', stream };
+            nativeCallMode(true, video);
+            showCallUi(ct.name, 'Calling...');
+            await sendEnc(c, { t: 'ring', video, token });
+            call.ringT = setTimeout(() => { if (call && call.stage === 'ringing') { endCall(true); toast('No answer'); } }, 40000);
+        }
+        function onRing(cid, m) {
+            const c = live[cid], ct = getCt(cid);
+            if (!ct || typeof m.token !== 'string' || !/^[0-9a-f]{32}$/.test(m.token)) return;
+            if (call) { sendEnc(c, { t: 'decline', token: m.token, busy: true }); return; }
+            call = { cid, token: m.token, video: !!m.video, role: 'callee', stage: 'incoming' };
+            $('incomingName').textContent = ct.name;
+            $('incomingTitle').textContent = 'Incoming ' + (call.video ? 'video' : 'voice') + ' call';
+            $('incomingIcon').className = 'fa-solid ' + (call.video ? 'fa-video' : 'fa-phone');
+            show($('incomingModal'), true);
+            call.ringT = setTimeout(() => { if (call && call.stage === 'incoming') endCall(true); }, 40000);
+            if (NATIVE && !appActive) {
+                nativeOverLock(true);
+                nativeNotify({ id: CALL_NID, kind: 'call', cid, title: ct.name, text: 'Incoming ' + (call.video ? 'video' : 'voice') + ' call' });
+            }
+            refreshChatUi();
+            try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (x) {}
+        }
+        async function acceptCall() {
+            const k = call; if (!k || k.stage !== 'incoming') return;
+            show($('incomingModal'), false);
+            clearTimeout(k.ringT);
+            nativeCancel(CALL_NID);
+            const c = live[k.cid];
+            try { k.stream = await getMedia(k.video); }
+            catch (e) { toast('Camera or microphone permission denied'); return endCall(true); }
+            if (call !== k || !c || !c._s.ok) { k.stream.getTracks().forEach(t => t.stop()); return; }
+            k.stage = 'connecting';
+            nativeCallMode(true, k.video);
+            showCallUi(getCt(k.cid).name, 'Connecting...');
+            await sendEnc(c, { t: 'accept', token: k.token });
+            k.ringT = setTimeout(() => { if (call === k && k.stage === 'connecting') endCall(true); }, 25000);
+        }
+        async function onAccept(cid, m) {
+            const k = call, c = live[cid], ct = getCt(cid);
+            if (!k || k.role !== 'caller' || k.stage !== 'ringing' || k.cid !== cid || m.token !== k.token || !c || !ct) return;
+            clearTimeout(k.ringT);
+            k.stage = 'connecting';
+            $('callTimerText').textContent = 'Connecting...';
+            const proof = await macHex(c._s.mk, 'call|' + k.token);
+            if (call !== k) return;
+            attachCall(peer.call(ct.addr, k.stream, { metadata: { proof } }));
+            k.ringT = setTimeout(() => { if (call === k && !k.start) endCall(true); }, 25000);
+        }
+        async function onCall(co) {
+            try {
+                const k = call, ct = k && getCt(k.cid), c = k && live[k.cid];
+                if (!k || k.role !== 'callee' || k.stage !== 'connecting' || !ct || !c || co.peer !== ct.addr) return co.close();
+                const proof = co.metadata && co.metadata.proof;
+                if (typeof proof !== 'string' || !await macOk(c._s.mk, proof, 'call|' + k.token)) return co.close();
+                co.answer(k.stream);
+                attachCall(co);
+            } catch (e) { try { co.close(); } catch (x) {} }
+        }
+        function onCallSignal(cid, m) {
+            const k = call;
+            if (!k || k.cid !== cid || m.token !== k.token) return;
+            const name = (getCt(cid) || {}).name || 'Contact';
+            if (m.t === 'decline') toast(m.busy ? name + ' is busy' : name + ' declined');
+            if (m.t === 'cancel' && k.role === 'callee' && k.stage === 'incoming') {
+                pushSys(cid, 'Missed call');
+                if (NATIVE && !appActive) nativeNotify({ id: msgNid(cid), kind: 'msg', cid, title: name, text: 'Missed call' });
+            }
+            endCall(false);
+        }
+        function showCallUi(name, status) {
+            $('callName').textContent = name;
+            $('callTimerText').textContent = status;
+            show($('localVideo'), !!(call.video && call.stream));
+            show($('btnCam'), !!call.video);
+            if (call.stream) $('localVideo').srcObject = call.stream;
+            $('btnMute').innerHTML = '<i class="fa-solid fa-microphone"></i>';
+            $('btnCam').innerHTML = '<i class="fa-solid fa-video"></i>';
+            show($('voiceAvatar'), true);
+            show($('callOverlay'), true);
+            refreshChatUi();
+        }
+        function attachCall(co) {
+            const k = call; if (!k) return;
+            k.obj = co;
+            co.on('stream', rs => {
+                $('remoteVideo').srcObject = rs;
+                show($('voiceAvatar'), rs.getVideoTracks().length === 0);
+                clearTimeout(k.ringT);
+                if (!k.start) { k.start = Date.now(); k.timer = setInterval(() => { $('callTimerText').textContent = fmtDur(Date.now() - k.start); }, 1000); }
+            });
+            co.on('close', () => { if (call === k) endCall(false); });
+            co.on('error', () => { if (call === k) endCall(false); });
+        }
+        function endCall(notify = true) {
+            if (!call) return;
+            const k = call; call = null;
+            nativeCancel(CALL_NID); nativeOverLock(false); nativeCallMode(false, false);
+            clearTimeout(k.ringT); clearInterval(k.timer);
+            const c = live[k.cid];
+            if (notify && c && c._s.ok) sendEnc(c, { t: k.stage === 'ringing' ? 'cancel' : k.stage === 'incoming' ? 'decline' : 'hangup', token: k.token });
+            try { k.obj && k.obj.close(); } catch (e) {}
+            if (k.stream) k.stream.getTracks().forEach(t => t.stop());
+            $('remoteVideo').srcObject = null; $('localVideo').srcObject = null;
+            show($('callOverlay'), false); show($('incomingModal'), false);
+            if (k.start) pushSys(k.cid, 'Call ended · ' + fmtDur(Date.now() - k.start));
+            refreshChatUi();
+        }
+        function toggleMute() {
+            if (!call || !call.stream) return;
+            const t = call.stream.getAudioTracks()[0]; if (!t) return;
+            t.enabled = !t.enabled;
+            $('btnMute').innerHTML = '<i class="fa-solid ' + (t.enabled ? 'fa-microphone' : 'fa-microphone-slash') + '"></i>';
+        }
+        function toggleCam() {
+            if (!call || !call.stream) return;
+            const t = call.stream.getVideoTracks()[0]; if (!t) return;
+            t.enabled = !t.enabled;
+            $('btnCam').innerHTML = '<i class="fa-solid ' + (t.enabled ? 'fa-video' : 'fa-video-slash') + '"></i>';
+        }
+
+        /* ================= Add contact: invite / scan / type in ================= */
+        function closeModal(m) { m.classList.add('hidden'); if (m.id === 'addModal') stopScan(); }
+        function openAdd(tab) { show($('addModal'), true); setTab(tab || 'invite'); }
+        function setTab(name) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+            ['invite', 'scan', 'manual'].forEach(n => show($('pane-' + n), n === name));
+            if (name === 'scan') startScan(); else stopScan();
+            if (name === 'invite') renderInviteList();
+        }
+        async function newInvite() {
+            if (vault.invites.length >= 20) return toast('Delete some old invites first');
+            const secret = genCode(50);
+            const inv = { iid: hex(rnd(4)), secret, kid: await kidOf(secret), created: Date.now() };
+            vault.invites.push(inv); save(); renderInviteList(); showInvite(inv);
+        }
+        function inviteText(inv) { return 'CK2|' + vault.myId + '|' + inv.secret + '|' + encodeURIComponent(myName()); }
+        function drawQR(canvas, text) {
+            if (typeof qrcode === 'undefined') return false;
+            const qr = qrcode(0, 'M'); qr.addData(text); qr.make();
+            const n = qr.getModuleCount(), cell = Math.max(3, Math.floor(280 / (n + 8))), size = cell * (n + 8);
+            canvas.width = canvas.height = size;
+            const x = canvas.getContext('2d');
+            x.fillStyle = '#fff'; x.fillRect(0, 0, size, size); x.fillStyle = '#000';
+            for (let r = 0; r < n; r++) for (let q = 0; q < n; q++) if (qr.isDark(r, q)) x.fillRect((q + 4) * cell, (r + 4) * cell, cell, cell);
+            return true;
+        }
+        function showInvite(inv) {
+            show($('inviteBox'), true);
+            $('invId').value = vault.myId; $('invSecret').value = inv.secret;
+            if (!drawQR($('qrCanvas'), inviteText(inv))) { $('qrCanvas').width = 1; toast('QR library did not load. Send the ID and secret instead.'); }
+        }
+        function renderInviteList() {
+            const box = $('inviteList'); box.innerHTML = '';
+            show($('inviteListWrap'), vault.invites.length > 0);
+            for (const inv of vault.invites) {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2 bg-black/40 border border-zinc-800 rounded-xl px-3 py-2';
+                const lbl = document.createElement('span'); lbl.className = 'flex-1 text-[11px] text-zinc-300'; lbl.textContent = 'Invite · ' + timeStr(inv.created);
+                const sh = document.createElement('button'); sh.className = 'px-2.5 py-1 text-[11px] rounded-lg bg-zinc-800 text-zinc-200'; sh.textContent = 'Show';
+                sh.addEventListener('click', () => showInvite(inv));
+                const del = document.createElement('button'); del.className = 'px-2.5 py-1 text-[11px] rounded-lg bg-red-950 text-red-400 keep-white'; del.textContent = 'Delete';
+                del.addEventListener('click', () => { vault.invites = vault.invites.filter(x => x !== inv); save(); show($('inviteBox'), false); renderInviteList(); });
+                row.append(lbl, sh, del); box.appendChild(row);
+            }
+        }
+        function parseInvite(text) {
+            const p = String(text).trim().split('|');
+            if (p[0] !== 'CK2' || p.length < 3) return null;
+            let name = ''; try { name = decodeURIComponent(p[3] || ''); } catch (e) {}
+            return { id: p[1], secret: p[2], name: cleanName(name) };
+        }
+        function handleScanned(text) {
+            const inv = parseInvite(text); if (!inv) return false;
+            stopScan();
+            if (inv.id === vault.myId) { toast("That's your own QR code"); setTab('invite'); return true; }
+            $('mId').value = inv.id; $('mSecret').value = inv.secret; $('mName').value = inv.name;
+            setTab('manual'); toast('Scanned. Check the name, then tap Add contact.');
+            return true;
+        }
+        let scanStream = null, scanRaf = 0;
+        async function startScan() {
+            const msg = $('scanMsg');
+            if (typeof jsQR === 'undefined') { msg.textContent = 'The QR scanner did not load. Use "Type in" instead.'; return; }
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { msg.textContent = 'Camera not available here. Use "Type in" instead.'; return; }
+            msg.textContent = 'Point the camera at your friend\'s invite QR code.';
+            try { scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }); }
+            catch (e) { msg.textContent = 'Camera permission denied. Use "Type in" instead.'; return; }
+            const v = $('scanVideo'); v.srcObject = scanStream;
+            try { await v.play(); } catch (e) {}
+            const cv = document.createElement('canvas'), cx = cv.getContext('2d', { willReadFrequently: true });
+            const tick = () => {
+                if (!scanStream) return;
+                if (v.readyState >= 2 && v.videoWidth) {
+                    const s = Math.min(1, 640 / Math.max(v.videoWidth, v.videoHeight));
+                    cv.width = Math.round(v.videoWidth * s); cv.height = Math.round(v.videoHeight * s);
+                    cx.drawImage(v, 0, 0, cv.width, cv.height);
+                    const img = cx.getImageData(0, 0, cv.width, cv.height);
+                    const r = jsQR(img.data, cv.width, cv.height, { inversionAttempts: 'dontInvert' });
+                    if (r && r.data && handleScanned(r.data)) return;
+                }
+                scanRaf = requestAnimationFrame(tick);
+            };
+            tick();
+        }
+        function stopScan() {
+            cancelAnimationFrame(scanRaf);
+            if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+            $('scanVideo').srcObject = null;
+        }
+        async function addManual() {
+            const id = $('mId').value.replace(/\s+/g, ''), secret = $('mSecret').value.replace(/\s+/g, ''), name = cleanName($('mName').value);
+            if (!/^[A-Za-z0-9]{40,128}$/.test(id)) return toast('Their ID looks wrong (40+ letters and numbers)');
+            if (!/^[A-Za-z0-9]{24,128}$/.test(secret)) return toast('The secret looks wrong');
+            if (id === vault.myId) return toast("That's your own ID");
+            if (vault.contacts.some(c => c.id === id)) return toast('Already in your contacts');
+            const ct = { cid: hex(rnd(6)), name: name || 'Contact', id, addr: await addrOf(id), secret, kid: await kidOf(secret), confirmed: false, created: Date.now() };
+            vault.contacts.push(ct); save();
+            $('mId').value = ''; $('mSecret').value = ''; $('mName').value = '';
+            closeModal($('addModal')); renderList(); dialLoop();
+            toast('Contact added. Connecting when they are online.');
+        }
+
+        /* ================= Contact menu, settings, backup ================= */
+        function openMenu() { const ct = getCt(active); if (!ct) return; $('renameInput').value = ct.name; show($('menuModal'), true); }
+        function renameContact() {
+            const ct = getCt(active), n = cleanName($('renameInput').value);
+            if (!ct || !n) return;
+            ct.name = n; save(); closeModal($('menuModal')); updateHeader(); renderList();
+        }
+        function clearChat() { chats[active] = { msgs: [], unread: 0, last: 0 }; renderChat(); renderList(); closeModal($('menuModal')); }
+        function deleteContact() {
+            const ct = getCt(active); if (!ct) return;
+            if (!confirm('Delete ' + ct.name + '? Their secret is removed and you will have to add them again.')) return;
+            const c = live[ct.cid];
+            if (call && call.cid === ct.cid) endCall(true);
+            delete live[ct.cid]; delete dialing[ct.cid]; delete chats[ct.cid];
+            if (c) { try { c.close(); } catch (e) {} }
+            vault.contacts = vault.contacts.filter(x => x !== ct); save();
+            closeModal($('menuModal')); closeChat(); updateTitle();
+        }
+        function refreshSettings() {
+            $('myNameInput').value = vault.myName || '';
+            $('myNameInput').placeholder = myName();
+            $('myIdField').value = vault.myId;
+            $('pinState').textContent = vkey ? 'PIN lock is on. Your contacts and secrets are encrypted on this device.' : 'No PIN set. Your contacts and secrets are stored unprotected on this device.';
+            $('btnSetPin').textContent = vkey ? 'Change PIN' : 'Set PIN';
+            refreshBg();
+            ChipmunkIO.refresh($('secureIoMount'));
+        }
+        async function savePin() {
+            const a = $('newPin').value;
+            if (a.length < 4) return toast('PIN must be at least 4 characters');
+            if (a !== $('newPin2').value) return toast('PINs do not match');
+            vsalt = rnd(16); vkey = await pinKey(a, vsalt); await save();
+            $('newPin').value = ''; $('newPin2').value = '';
+            closeModal($('pinModal')); refreshSettings(); toast('PIN saved');
+        }
+        function lockApp() {
+            if (!vkey) return toast('Set a PIN first');
+            nativeStop();
+            endCall(true); stopNet();
+            document.querySelectorAll('.modal').forEach(closeModal);
+            vault = null; vkey = null; vsalt = null; chats = {}; active = null; locked = true;
+            $('contactList').innerHTML = ''; $('msgs').innerHTML = '';
+            setNet('idle', 'Private & Encrypted'); updateTitle(); lockMode('unlock');
+        }
+        async function exportBackup() {
+            await saveQ;
+            const raw = localStorage.getItem(VK); if (!raw) return;
+            if (!vkey && !confirm('You have no PIN, so this file will contain your secrets in readable form. Continue?')) return;
+            if (NATIVE) {
+                try { const r = await CB.saveFile({ filename: 'chipmunk-backup-' + new Date().toISOString().slice(0, 10) + '.json', data: raw }); toast('Saved to ' + r.saved); }
+                catch (e) { toast('Could not save the backup'); }
+                return;
+            }
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([raw], { type: 'application/json' }));
+            a.download = 'chipmunk-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+            document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        }
+        async function importBackup(file) {
+            try {
+                const rec = JSON.parse(await file.text());
+                if (rec.v !== 2) throw new Error('version');
+                let pin = '';
+                if (rec.e) { pin = prompt('Enter the PIN that protects this backup'); if (pin === null) return; }
+                const o = await openRecord(rec, pin);
+                if (typeof o.vault.myId !== 'string' || !Array.isArray(o.vault.contacts)) throw new Error('shape');
+                if (!confirm('Replace everything in this app with the backup (' + o.vault.contacts.length + ' contacts)?')) return;
+                endCall(true); stopNet();
+                vault = o.vault; vault.invites = vault.invites || []; chats = {}; active = null;
+                await save(); closeModal($('settingsModal')); setView('list'); renderList(); startNet();
+                toast('Backup restored');
+            } catch (e) { toast('Could not open that backup (wrong PIN or bad file)'); }
+        }
+        function eraseAll() {
+            if (!confirm('Erase your ID, all contacts and all secrets from this device? This cannot be undone.')) return;
+            try { localStorage.removeItem(VK); } catch (e) {}
+            location.reload();
+        }
+
+        /* ================= App entry ================= */
+        async function enterApp(o) {
+            vault = o.vault; vkey = o.key; vsalt = o.salt;
+            vault.contacts = vault.contacts || []; vault.invites = vault.invites || [];
+            locked = false; chats = {}; live = {}; dialing = {}; active = null;
+            setView('list'); renderList();
+            await startNet();
+            nativeStart();
+        }
+        async function boot() {
+            if (!(window.crypto && crypto.subtle)) { lockMode('setup'); toast('Encryption needs a secure (https) page'); return; }
+            let raw = null; try { raw = localStorage.getItem(VK); } catch (e) {}
+            if (!raw) return lockMode('setup');
+            let rec; try { rec = JSON.parse(raw); } catch (e) { return lockMode('setup'); }
+            if (rec.e) return lockMode('unlock');
+            try { await enterApp(await openRecord(rec)); } catch (e) { lockMode('setup'); }
+        }
+
+        /* ================= Wiring ================= */
+        function wire() {
+            $('btnLockGo').addEventListener('click', lockGo);
+            ['pinInput', 'pinInput2'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') lockGo(); }));
+            $('btnSkipPin').addEventListener('click', async () => {
+                if (!confirm('Without a PIN, anyone who opens this app on this device can see your contacts and secrets. Skip anyway?')) return;
+                vkey = null; vsalt = null; await createVault();
+            });
+            $('btnForgot').addEventListener('click', eraseAll);
+            $('btnBack').addEventListener('click', closeChat);
+            $('btnAdd').addEventListener('click', () => openAdd('invite'));
+            $('btnEmptyAdd').addEventListener('click', () => openAdd('invite'));
+            $('btnMenu').addEventListener('click', openMenu);
+            $('btnRename').addEventListener('click', renameContact);
+            $('btnClearChat').addEventListener('click', clearChat);
+            $('btnDeleteContact').addEventListener('click', deleteContact);
+            document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+            $('btnNewInvite').addEventListener('click', newInvite);
+            $('btnAddManual').addEventListener('click', addManual);
+            document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', async () => {
+                const f = $(b.dataset.copy);
+                try { await navigator.clipboard.writeText(f.value); toast('Copied'); }
+                catch (e) { f.select(); toast('Select and copy'); }
+            }));
+            $('openSettingsBtn').addEventListener('click', () => { refreshSettings(); show($('settingsModal'), true); });
+            $('myNameInput').addEventListener('change', e => { vault.myName = cleanName(e.target.value); save(); });
+            $('btnSetPin').addEventListener('click', () => show($('pinModal'), true));
+            $('btnPinSave').addEventListener('click', savePin);
+            $('btnLockNow').addEventListener('click', lockApp);
+            $('btnExport').addEventListener('click', exportBackup);
+            $('importInput').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) importBackup(f); });
+            $('btnErase').addEventListener('click', eraseAll);
+            $('btnSend').addEventListener('click', sendText);
+            $('msgInput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendText(); } });
+            $('msgInput').addEventListener('input', e => { const t = e.target; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 128) + 'px'; });
+            $('photoInput').addEventListener('change', e => { const f = Array.from(e.target.files); e.target.value = ''; if (f.length) sendPhotos(f); });
+            $('btnVoice').addEventListener('click', () => startCall(false));
+            $('btnVideo').addEventListener('click', () => startCall(true));
+            $('btnAccept').addEventListener('click', acceptCall);
+            $('btnDecline').addEventListener('click', () => endCall(true));
+            $('btnHangup').addEventListener('click', () => endCall(true));
+            $('btnMute').addEventListener('click', toggleMute);
+            $('btnCam').addEventListener('click', toggleCam);
+            document.querySelectorAll('[data-theme-pick]').forEach(b => b.addEventListener('click', () => setAppTheme(b.dataset.themePick)));
+            document.querySelectorAll('[data-accent]').forEach(b => b.addEventListener('click', () => setAccentColor(b.dataset.accent)));
+            document.querySelectorAll('.closeModalBtn').forEach(b => b.addEventListener('click', () => closeModal(b.closest('.modal'))));
+            document.querySelectorAll('.modal').forEach(m => m.addEventListener('mousedown', e => { if (e.target === m) closeModal(m); }));
+            document.addEventListener('keydown', e => {
+                if (e.key !== 'Escape') return;
+                const open = Array.from(document.querySelectorAll('.modal')).filter(m => !m.classList.contains('hidden'));
+                if (open.length) closeModal(open[open.length - 1]);
+            });
+            document.querySelectorAll('img[data-fallback]').forEach(img => img.addEventListener('error', () => {
+                const s = document.createElement('span');
+                s.textContent = img.dataset.fallback;
+                s.id = img.id;
+                s.className = img.className.includes('w-24') ? 'block text-6xl' : 'text-2xl';
+                img.replaceWith(s);
+            }));
+            ChipmunkIO.init({
+                getRooms: () => vault ? vault.contacts.map(c => ({ title: c.name, code: c.id, secret: c.secret })) : [],
+                addRooms: async list => {
+                    if (!vault) return 0;
+                    let n = 0;
+                    for (const r of list) {
+                        const id = String(r.code || ''), secret = String(r.secret || '');
+                        if (!/^[A-Za-z0-9]{40,128}$/.test(id) || !/^[A-Za-z0-9]{24,128}$/.test(secret)) continue;
+                        if (id === vault.myId || vault.contacts.some(c => c.id === id)) continue;
+                        vault.contacts.push({ cid: hex(rnd(6)), name: cleanName(r.title) || 'Contact', id, addr: await addrOf(id), secret, kid: await kidOf(secret), confirmed: false, created: Date.now() });
+                        n++;
+                    }
+                    if (n) { await save(); renderList(); dialLoop(); }
+                    return n;
+                },
+                loadTurn: () => (vault && vault.turn) || null,
+                persistTurn: o => { if (!vault) throw new Error('Unlock the app first.'); if (o) vault.turn = o; else delete vault.turn; save(); },
+                onTurnChange: () => { if (!locked && vault && !call) connectPeer(); },
+                saveFile: async (name, text) => {
+                    if (NATIVE) {
+                        try { const r = await CB.saveFile({ filename: name, data: text }); return 'Saved to ' + r.saved; }
+                        catch (e) { throw new Error('Could not save the file'); }
+                    }
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name;
+                    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+                },
+                icon: n => '<i class="fa-solid fa-' + ({ 'key-round': 'key', 'shield-check': 'shield-halved', 'trash-2': 'trash' }[n] || n) + '"></i>'
+            });
+            ChipmunkIO.renderSettings($('secureIoMount'));
+            window.addEventListener('online', () => { if (!locked) connectPeer(); });
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden || locked) return;
+                if (active && view === 'chat') { chatOf(active).unread = 0; renderList(); updateTitle(); }
+                dialLoop();
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            let a = null, t = null;
+            try { a = localStorage.getItem('cc_accent_color'); t = localStorage.getItem('cc_app_theme'); } catch (e) {}
+            setAccentColor(a || '#10b981');
+            setAppTheme(t || 'black');
+            wire();
+            wireNative();
+            boot();
+            if (!NATIVE && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+                navigator.serviceWorker.register('sw.js').catch(() => {});
+            }
+        });
+    </script>
+</body>
+</html>
