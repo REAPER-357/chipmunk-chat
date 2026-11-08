@@ -1,0 +1,12 @@
+{
+  "appId": "app.chipmunk.chat",
+  "appName": "Chipmunk Chat",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#000000"
+  }
+}
