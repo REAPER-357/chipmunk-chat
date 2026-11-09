@@ -11,13 +11,17 @@ self.addEventListener('activate', e => {
     self.clients.claim();
 });
 
-// Network-first for the app shell, cache as offline fallback. Cross-origin (PeerJS, CDNs) is left alone.
+// Network-first for the app shell (bypassing the browser HTTP cache), cache as offline fallback.
+// Cross-origin (PeerJS, CDNs) is left alone.
 self.addEventListener('fetch', e => {
     const u = new URL(e.request.url);
     if (e.request.method !== 'GET' || u.origin !== location.origin) return;
     e.respondWith(
-        fetch(e.request)
-            .then(r => { const copy = r.clone(); caches.open(C).then(c => c.put(e.request, copy)); return r; })
+        fetch(e.request, { cache: 'no-store' })
+            .then(r => {
+                if (r.ok) { const copy = r.clone(); caches.open(C).then(c => c.put(e.request, copy)); }
+                return r;
+            })
             .catch(() => caches.match(e.request))
     );
 });
